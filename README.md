@@ -6,9 +6,9 @@
 
 An unofficial iOS and iPadOS port of AQWorlds Classic.
 
-**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.2/AQWorlds-Classic-0.1.2-unsigned.ipa)** · [Release notes](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v0.1.2)
+**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.3/AQWorlds-Classic-0.1.3-unsigned.ipa)** · [Release notes](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v0.1.3)
 
-Version 0.1.2 · Development preview
+Version 0.1.3 · Development preview
 
 </div>
 
@@ -16,7 +16,7 @@ Version 0.1.2 · Development preview
 
 This project is under development. The current build includes the Classic name, dragon icon and touch input support. Startup has been tested in an iPadOS 18.6 simulator, including after re-signing with a different bundle ID.
 
-Physical-device testing is pending. Login, server connections, map loading and touch controls have not yet been verified on an iPhone or iPad.
+Version 0.1.2 starts on a physical iPhone. On-device testing of 0.1.3 is pending. Login, server connections, map loading and touch controls have not yet been verified on an iPhone or iPad.
 
 ## Installation
 
@@ -43,7 +43,7 @@ The original package uses `com.personal.aqwprobe`. Retain your existing signing 
 
 The current download is an unsigned IPA for iPhone and iPad. Personal signing is required.
 
-[Checksums](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.2/SHA256SUMS.txt) · [All releases](https://github.com/krittayot611/aqworlds-classic-ios/releases)
+[Checksums](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.3/SHA256SUMS.txt) · [All releases](https://github.com/krittayot611/aqworlds-classic-ios/releases)
 
 ## Issues
 
