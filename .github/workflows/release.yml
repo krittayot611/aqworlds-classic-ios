@@ -11,6 +11,7 @@ on:
       - cloud_build.py
       - simulator_smoke.py
       - simulator_runtime_diagnostics.py
+      - loader_smoke.py
       - AppIconSource.png
       - adt.cfg
       - .github/workflows/release.yml
@@ -46,8 +47,8 @@ jobs:
           cp adt.cfg "$AQW_AIR_SDK/lib/adt.cfg"
       - name: Build IPA
         run: python3 cloud_build.py --sdk "$AQW_AIR_SDK"
-      - name: Verify game import in simulator
-        run: python3 simulator_smoke.py --sdk "$AQW_AIR_SDK"
+      - name: Verify game import and Stage access
+        run: python3 loader_smoke.py --sdk "$AQW_AIR_SDK"
       - name: Upload build and simulator results
         if: always()
         uses: actions/upload-artifact@v7
@@ -72,7 +73,7 @@ jobs:
           import base64, json, subprocess
           data = json.loads(subprocess.check_output(['gh', 'api', 'repos/${{ github.repository }}/contents/README.md']))
           text = base64.b64decode(data['content']).decode().replace('0.1.2', '0.1.3')
-          text = text.replace('Physical-device testing is pending.', 'The native app starts on a physical iPhone. Full gameplay testing is pending.')
+          text = text.replace('Physical-device testing is pending.', 'Version 0.1.2 starts on a physical iPhone. On-device testing of 0.1.3 is pending.')
           payload = {'message': 'Update download to 0.1.3', 'sha': data['sha'], 'content': base64.b64encode(text.encode()).decode()}
           subprocess.run(['gh', 'api', '--method', 'PUT', 'repos/${{ github.repository }}/contents/README.md', '--input', '-'], input=json.dumps(payload).encode(), check=True, stdout=subprocess.DEVNULL)
           PY
