@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<application xmlns="http://ns.adobe.com/air/application/51.3">
+    <id>com.personal.aqwprobe</id>
+    <versionNumber>0.1.3</versionNumber>
+    <filename>AQWorldsClassic</filename>
+    <name>AQWorlds Classic</name>
+    <description>Personal touch client for the official AQWorlds Classic launcher.</description>
+    <initialWindow>
+        <content>Probe.swf</content>
+        <visible>true</visible>
+        <fullScreen>true</fullScreen>
+        <aspectRatio>landscape</aspectRatio>
+        <renderMode>cpu</renderMode>
+        <autoOrients>true</autoOrients>
+        <width>960</width>
+        <height>550</height>
+        <softKeyboardBehavior>pan</softKeyboardBehavior>
+    </initialWindow>
+    <supportedProfiles>mobileDevice extendedMobileDevice desktop</supportedProfiles>
+    <icon>
+        <image29x29>icons/icon29.png</image29x29>
+        <image40x40>icons/icon40.png</image40x40>
+        <image50x50>icons/icon50.png</image50x50>
+        <image57x57>icons/icon57.png</image57x57>
+        <image58x58>icons/icon58.png</image58x58>
+        <image60x60>icons/icon60.png</image60x60>
+        <image72x72>icons/icon72.png</image72x72>
+        <image76x76>icons/icon76.png</image76x76>
+        <image80x80>icons/icon80.png</image80x80>
+        <image87x87>icons/icon87.png</image87x87>
+        <image100x100>icons/icon100.png</image100x100>
+        <image114x114>icons/icon114.png</image114x114>
+        <image120x120>icons/icon120.png</image120x120>
+        <image144x144>icons/icon144.png</image144x144>
+        <image152x152>icons/icon152.png</image152x152>
+        <image167x167>icons/icon167.png</image167x167>
+        <image180x180>icons/icon180.png</image180x180>
+        <image1024x1024>icons/icon1024.png</image1024x1024>
+    </icon>
+    <iPhone>
+        <InfoAdditions><![CDATA[
+            <key>UIDeviceFamily</key>
+            <array><string>1</string><string>2</string></array>
+            <key>NSAppTransportSecurity</key>
+            <dict>
+                <key>NSExceptionDomains</key>
+                <dict>
+                    <key>aq.com</key>
+                    <dict>
+                        <key>NSIncludesSubdomains</key><true/>
+                        <key>NSExceptionAllowsInsecureHTTPLoads</key><true/>
+                    </dict>
+                    <key>aqworlds.com</key>
+                    <dict>
+                        <key>NSIncludesSubdomains</key><true/>
+                        <key>NSExceptionAllowsInsecureHTTPLoads</key><true/>
+                    </dict>
+                </dict>
+            </dict>
+        ]]></InfoAdditions>
+        <requestedDisplayResolution>high</requestedDisplayResolution>
+    </iPhone>
+    <supportedLanguages>en</supportedLanguages>
+</application>
