@@ -264,7 +264,7 @@ package {
         }
 
         private function showFailure(text:String):void {
-            writeStartup(text);
+            writeStartup("Load failed (" + loadPhase + "): " + text);
             panel.visible = true;
             if (panel.parent == this) {
                 setChildIndex(panel, numChildren - 1);

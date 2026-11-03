@@ -12,7 +12,7 @@ Development preview of AQWorlds Classic for iOS and iPadOS.
 
 ### Testing
 
-The release workflow checks compilation, IPA packaging, and loading the official game into an iPad simulator with the original and a changed bundle ID. Login, server connections and gameplay on physical devices still require testing.
+The release workflow checks compilation, IPA packaging, and loading the official game in AIR's mobile-device emulation on macOS. This checks the loading path and Stage access; it does not verify iOS device compatibility. Login, server connections and gameplay on physical devices still require testing.
 
 ### Installation
 
