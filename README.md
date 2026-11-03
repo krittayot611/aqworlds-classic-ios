@@ -14,9 +14,9 @@ Version 0.1.3 · Development preview
 
 ## Status
 
-This project is under development. The current build includes the Classic name, dragon icon and touch input support. Startup has been tested in an iPadOS 18.6 simulator, including after re-signing with a different bundle ID.
+This project is under development. Version 0.1.3 replaces the remote launcher loading path to address SecurityError #2070. Game loading and Stage access passed a check in AIR's mobile-device emulation on macOS.
 
-Version 0.1.2 starts on a physical iPhone. On-device testing of 0.1.3 is pending. Login, server connections, map loading and touch controls have not yet been verified on an iPhone or iPad.
+Version 0.1.2 was confirmed to start on a physical iPhone. On-device testing of 0.1.3 is pending. Login, server connections, map loading and touch controls remain unverified on physical devices.
 
 ## Installation
 
@@ -52,3 +52,4 @@ Report problems in [Issues](https://github.com/krittayot611/aqworlds-classic-ios
 ---
 
 AQWorlds and its game assets belong to Artix Entertainment. This project is not affiliated with or endorsed by Artix Entertainment.
+
