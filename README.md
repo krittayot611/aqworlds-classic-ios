@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./banner.png" width="100%" alt="AQWorlds Classic banner">
+<img src="./banner-original.jpg" width="100%" alt="AQWorlds Classic banner">
 
 # AQWorlds Classic
 
@@ -52,6 +52,7 @@ Report problems in [Issues](https://github.com/krittayot611/aqworlds-classic-ios
 ---
 
 AQWorlds and its game assets belong to Artix Entertainment. This project is not affiliated with or endorsed by Artix Entertainment.
+
 
 
 
