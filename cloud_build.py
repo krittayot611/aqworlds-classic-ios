@@ -78,7 +78,7 @@ def main():
     output = root / "output"
     output.mkdir(exist_ok=True)
     version = ET.parse(root / "build/Probe-app.xml").find("{*}versionNumber").text
-    final_ipa = output / ("AQWorlds-Classic-" + version + "-unsigned.ipa")
+    final_ipa = output / ("AQWorlds-Classic-" + version + ".ipa")
     final_ipa.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix="aqw-packaging-") as temp:
         directory = Path(temp)
@@ -131,3 +131,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

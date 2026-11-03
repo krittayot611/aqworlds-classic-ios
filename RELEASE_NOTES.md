@@ -1,6 +1,6 @@
 Development preview of AQWorlds Classic for iOS and iPadOS.
 
-**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.3/AQWorlds-Classic-0.1.3-unsigned.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
+**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.3/AQWorlds-Classic-0.1.3.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
 
 ### Fixes
 
@@ -23,3 +23,4 @@ Checksums are included in the release assets.
 ---
 
 AQWorlds and its game assets belong to Artix Entertainment. This project is not affiliated with or endorsed by Artix Entertainment.
+

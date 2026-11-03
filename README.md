@@ -6,7 +6,7 @@
 
 An unofficial iOS and iPadOS port of AQWorlds Classic.
 
-**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.3/AQWorlds-Classic-0.1.3-unsigned.ipa)** · [Release notes](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v0.1.3)
+**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.3/AQWorlds-Classic-0.1.3.ipa)** · [Release notes](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v0.1.3)
 
 Version 0.1.3 · Development preview
 
@@ -52,4 +52,5 @@ Report problems in [Issues](https://github.com/krittayot611/aqworlds-classic-ios
 ---
 
 AQWorlds and its game assets belong to Artix Entertainment. This project is not affiliated with or endorsed by Artix Entertainment.
+
 
