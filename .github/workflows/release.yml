@@ -48,6 +48,11 @@ jobs:
           if [ -f native-background.patch ]; then
             git apply --check native-background.patch
             git apply native-background.patch
+            python3 - <<'PYFIX'
+          from pathlib import Path
+          p = Path('build_margins.py')
+          p.write_text(p.read_text().replace("'+configname=air', '-source-path='", "'+configname=air', '-swf-version=14', '-source-path='"))
+          PYFIX
           fi
       - uses: actions/setup-java@v6
         with:
