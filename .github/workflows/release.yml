@@ -11,6 +11,7 @@ on:
     branches: [main]
     paths:
       - Main.as
+      - MapRegression.as
       - Probe-app.xml
       - build.py
       - cloud_build.py
@@ -53,7 +54,7 @@ jobs:
           cp adt.cfg "$AQW_AIR_SDK/lib/adt.cfg"
       - name: Build IPA
         run: python3 cloud_build.py --sdk "$AQW_AIR_SDK"
-      - name: Verify backgrounds and automatic game startup
+      - name: Verify map rasterisation and movement coordinates
         run: python3 loader_smoke.py --sdk "$AQW_AIR_SDK"
       - name: Upload build and simulator results
         if: always()
@@ -74,18 +75,18 @@ jobs:
           p = next(Path('output').glob('*.ipa'))
           Path('output/SHA256SUMS.txt').write_text(hashlib.sha256(p.read_bytes()).hexdigest() + '  ' + p.name + '\n')
           PY
-          gh release create v0.1.6 output/*.ipa output/SHA256SUMS.txt \
-            --title 'AQWorlds Classic 0.1.6' --prerelease --notes-file RELEASE_NOTES.md
+          gh release create v0.1.7 output/*.ipa output/SHA256SUMS.txt \
+            --title 'AQWorlds Classic 0.1.7' --prerelease --notes-file RELEASE_NOTES.md
           python3 - <<'PY'
           import base64, json, subprocess
           data = json.loads(subprocess.check_output(['gh', 'api', 'repos/${{ github.repository }}/contents/README.md']))
-          text = base64.b64decode(data['content']).decode().replace('0.1.5', '0.1.6')
+          text = base64.b64decode(data['content']).decode().replace('0.1.6', '0.1.7')
           text = text.replace('Open **AQWorlds Classic** and tap **Open game**. An internet connection is required.', 'Open **AQWorlds Classic**. The app loads the login screen automatically. An internet connection is required.')
           start = text.index('## Status\n\n') + len('## Status\n\n')
           end = text.index('\n## Installation', start)
-          status = "This project is under development. Version 0.1.6 adds the supplied background texture to the loading screen and the space around the centred game. Automatic startup and external game asset loading are checked in AIR mobile-device emulation on macOS.\n\nThe AIR free-tier HARMAN launch screen is still shown at startup. Removing it requires a paid AIR SDK license.\n\nOn-device testing of 0.1.6, full login, server entry and gameplay remain pending."
+          status = "This project is under development. Version 0.1.7 restores the game's original Stage coordinates and display-list order to address the map rendering and movement regression introduced in 0.1.6. The release checks exercise the official map rasteriser and movement-coordinate conversion without signing in.\n\nThe AIR free-tier HARMAN launch screen is still shown at startup. Removing it requires a paid AIR SDK license.\n\nFull login, server entry and gameplay with 0.1.7 still require testing on a physical device."
           text = text[:start] + status + '\n' + text[end:]
-          payload = {'message': 'Update download to 0.1.6', 'sha': data['sha'], 'content': base64.b64encode(text.encode()).decode()}
+          payload = {'message': 'Update download to 0.1.7', 'sha': data['sha'], 'content': base64.b64encode(text.encode()).decode()}
           subprocess.run(['gh', 'api', '--method', 'PUT', 'repos/${{ github.repository }}/contents/README.md', '--input', '-'], input=json.dumps(payload).encode(), check=True, stdout=subprocess.DEVNULL)
           PY
 
