@@ -19,7 +19,8 @@ def main():
     startup = Path.home() / 'Documents/aqw-startup.log'
     startup.unlink(missing_ok=True)
     command = [str(args.sdk.resolve() / 'bin/adl'), '-profile', 'mobileDevice',
-               '-screensize', '2048x944:2048x944',
+               # ADL expects portrait dimensions, then applies the descriptor's landscape orientation.
+               '-screensize', '472x1024:472x1024',
                str(root / 'build/Probe-app.xml'), str(root / 'build'), '--', '--smoke-game',
                '--smoke-assets=Assets_20260702.swf']
     print('Checking official-game import and Stage access in AIR.', flush=True)
