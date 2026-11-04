@@ -2,6 +2,11 @@ name: Build iOS release
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a development release
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -58,6 +63,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
       - name: Publish development release
+        if: github.event_name == 'push' || inputs.publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
