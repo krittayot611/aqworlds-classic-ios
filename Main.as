@@ -9,6 +9,7 @@ package {
     import flash.display.Sprite;
     import flash.display.StageScaleMode;
     import flash.display.StageAlign;
+    import flash.display.StageDisplayState;
     import flash.events.Event;
     import flash.events.IOErrorEvent;
     import flash.events.InvokeEvent;
@@ -52,6 +53,9 @@ package {
         private var assetProbe:Loader;
         private var gameClient:MovieClip;
         private var loadingPreviewSaved:Boolean = false;
+        private var nativeWidth:Number;
+        private var nativeHeight:Number;
+        private var sourceBounds:Rectangle;
 
         public function Main() {
             writeStartup("Main constructor");
@@ -88,7 +92,7 @@ package {
             gameLoader.contentLoaderInfo.addEventListener(
                 SecurityErrorEvent.SECURITY_ERROR, onLoadError
             );
-            writeStartup("Touch client 0.1.6: loading screen ready");
+            writeStartup("Touch client 0.1.7: loading screen ready");
             try {
                 centerStage();
                 stage.addEventListener(Event.RESIZE, centerStage);
@@ -145,30 +149,57 @@ package {
         }
 
         private function centerStage(event:Event = null):void {
-            // Use the entire native viewport for the background, then fit the
-            // game's original canvas with one uniform transform.
-            if (stage.align != StageAlign.TOP_LEFT) stage.align = StageAlign.TOP_LEFT;
-            if (stage.scaleMode != StageScaleMode.NO_SCALE) stage.scaleMode = StageScaleMode.NO_SCALE;
-            var width:Number = Math.max(1, stage.stageWidth);
-            var height:Number = Math.max(1, stage.stageHeight);
-            var fit:Number = Math.min(width / 960, height / 550);
-            var left:Number = (width - 960 * fit) / 2;
-            var top:Number = (height - 550 * fit) / 2;
-            scaleX = scaleY = fit;
-            x = left;
-            y = top;
+            // Legacy map rasterisation and walking expect an untransformed game
+            // at the Stage origin and the original 960 x 550 coordinate system.
+            if (isNaN(nativeWidth) || nativeWidth <= 0) {
+                stage.align = StageAlign.TOP_LEFT;
+                stage.scaleMode = StageScaleMode.NO_SCALE;
+                nativeWidth = stage.stageWidth;
+                nativeHeight = stage.stageHeight;
+            }
+            stage.align = "";
+            stage.scaleMode = StageScaleMode.SHOW_ALL;
+            scaleX = scaleY = 1;
+            x = y = 0;
             if (gameClient != null) {
-                gameClient.scaleX = gameClient.scaleY = fit;
-                gameClient.x = left;
-                gameClient.y = top;
+                gameClient.scaleX = gameClient.scaleY = 1;
+                gameClient.x = gameClient.y = 0;
+                gameClient.scrollRect = null;
+            }
+            var fit:Number = Math.min(nativeWidth / 960, nativeHeight / 550);
+            var width:Number = nativeWidth / fit;
+            var height:Number = nativeHeight / fit;
+            sourceBounds = new Rectangle((960 - width) / 2, (550 - height) / 2, width, height);
+            try {
+                stage.fullScreenSourceRect = sourceBounds;
+                if (stage.displayState == StageDisplayState.NORMAL) {
+                    stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
+                }
+            } catch (unsupported:Error) {
+                // Keep the game's coordinate system intact on runtimes which
+                // cannot show a background outside the original canvas.
+                writeStartup("Full-screen background unavailable: " + unsupported.message);
             }
             var cover:Number = Math.max(width / backdropTexture.width, height / backdropTexture.height);
             var fill:Matrix = new Matrix(cover, 0, 0, cover,
-                (width - backdropTexture.width * cover) / 2,
-                (height - backdropTexture.height * cover) / 2);
+                (960 - backdropTexture.width * cover) / 2,
+                (550 - backdropTexture.height * cover) / 2);
             backdrop.graphics.clear();
             backdrop.graphics.beginBitmapFill(backdropTexture, fill, false, true);
-            backdrop.graphics.drawRect(0, 0, width, height);
+            if (gameClient == null) {
+                backdrop.graphics.drawRect(sourceBounds.x, sourceBounds.y, width, height);
+            } else {
+                // The game must be Stage child zero. Draw only the surrounding
+                // margins in the overlay so neither its image nor input is covered.
+                if (sourceBounds.x < 0) {
+                    backdrop.graphics.drawRect(sourceBounds.x, 0, -sourceBounds.x, 550);
+                    backdrop.graphics.drawRect(960, 0, -sourceBounds.x, 550);
+                }
+                if (sourceBounds.y < 0) {
+                    backdrop.graphics.drawRect(sourceBounds.x, sourceBounds.y, width, -sourceBounds.y);
+                    backdrop.graphics.drawRect(sourceBounds.x, 550, width, -sourceBounds.y);
+                }
+            }
             backdrop.graphics.endFill();
         }
 
@@ -289,12 +320,9 @@ package {
                 game["titleDomain"] = ApplicationDomain.currentDomain;
                 game.x = 0;
                 game.y = 0;
-                game.scrollRect = new Rectangle(0, 0, 960, 550);
-                stage.addChildAt(game, 1);
-                if (stage.getChildIndex(backdrop) >= stage.getChildIndex(game)) {
-                    throw new Error("The background must remain behind the game.");
-                }
-                writeStartup("Background behind game; pointer input disabled");
+                game.scrollRect = null;
+                stage.addChildAt(game, 0);
+                writeStartup("Game is Stage child zero; background input disabled");
                 gameClient = game;
                 centerStage();
                 panel.visible = false;
@@ -325,6 +353,9 @@ package {
             assetProbe = new assetLoaderClass() as Loader;
             assetProbe.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, onUnhandledError);
             assetProbe.contentLoaderInfo.addEventListener(Event.COMPLETE, function(event:Event):void {
+                var regression:Object = MapRegression.run(gameClient);
+                if (regression == null) throw new Error("The map regression check did not complete.");
+                writeStartup("Map regression passed: " + JSON.stringify(regression));
                 writeStartup("External asset check passed: " + smokeAssetFile);
             });
             assetProbe.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR, onLoadError);

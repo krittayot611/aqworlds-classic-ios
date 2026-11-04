@@ -39,15 +39,17 @@ def main():
                     raise RuntimeError('The game loading check failed. See loader-smoke.log.')
                 if ('Automatic game launch' in text and 'Game client attached' in text
                         and 'External asset check passed:' in text
-                        and 'Viewport centred: align=TL; scale=noScale' in text
-                        and 'Background behind game; pointer input disabled' in text
+                        and 'Viewport centred: align=; scale=showAll' in text
+                        and 'Game is Stage child zero; background input disabled' in text
+                        and 'Map regression passed:' in text
                         and loading_preview.exists()):
                     if attached_at is None:
                         attached_at = time.monotonic()
                     if time.monotonic() - attached_at >= 8:
                         result = {'automatic_launch': True, 'game_imported': True, 'stage_access_passed': True,
                                   'viewport_centred': True, 'external_assets_loaded': True,
-                                  'background_behind_game': True, 'loading_background_captured': True,
+                                  'legacy_game_coordinates': True, 'map_rasterization_checked': True,
+                                  'movement_coordinates_checked': True, 'loading_background_captured': True,
                                   'runtime': 'macOS AIR mobileDevice emulation',
                                   'physical_ios_gameplay_verified': False}
                         (output / 'loading-background.png').write_bytes(loading_preview.read_bytes())
