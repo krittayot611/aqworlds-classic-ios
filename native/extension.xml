@@ -1,0 +1,17 @@
+<extension xmlns="http://ns.adobe.com/air/extension/3.1">
+    <id>com.aqw.classic.margins</id>
+    <versionNumber>1.0.0</versionNumber>
+    <platforms>
+        <platform name="iPhone-ARM"><applicationDeployment>
+            <nativeLibrary>libAQWMargins.a</nativeLibrary>
+            <initializer>AQWMarginsInitializer</initializer>
+            <finalizer>AQWMarginsFinalizer</finalizer>
+        </applicationDeployment></platform>
+        <platform name="iPhone-x86"><applicationDeployment>
+            <nativeLibrary>libAQWMargins.a</nativeLibrary>
+            <initializer>AQWMarginsInitializer</initializer>
+            <finalizer>AQWMarginsFinalizer</finalizer>
+        </applicationDeployment></platform>
+        <platform name="default"><applicationDeployment/></platform>
+    </platforms>
+</extension>
