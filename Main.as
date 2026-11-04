@@ -8,6 +8,7 @@ package {
     import flash.display.MovieClip;
     import flash.display.Sprite;
     import flash.display.StageScaleMode;
+    import flash.display.StageAlign;
     import flash.events.Event;
     import flash.events.IOErrorEvent;
     import flash.events.InvokeEvent;
@@ -18,6 +19,7 @@ package {
     import flash.filesystem.FileMode;
     import flash.filesystem.FileStream;
     import flash.geom.Matrix;
+    import flash.geom.Rectangle;
     import flash.net.URLRequest;
     import flash.net.URLLoader;
     import flash.net.URLLoaderDataFormat;
@@ -125,21 +127,13 @@ package {
             backdropTexture = (new BackgroundImage() as Bitmap).bitmapData;
             backdrop.mouseEnabled = false;
             backdrop.mouseChildren = false;
-            var scale:Number = Math.max(960 / backdropTexture.width, 550 / backdropTexture.height);
-            var fill:Matrix = new Matrix(scale, 0, 0, scale,
-                (960 - backdropTexture.width * scale) / 2,
-                (550 - backdropTexture.height * scale) / 2);
-            // Paint beyond the logical canvas so the texture also fills SHOW_ALL's margins.
-            backdrop.graphics.beginBitmapFill(backdropTexture, fill, true, true);
-            backdrop.graphics.drawRect(-960, -550, 2880, 1650);
-            backdrop.graphics.endFill();
             stage.addChildAt(backdrop, 0);
             writeStartup("Background ready: original texture; pointer input disabled");
         }
 
         private function captureLoadingPreview():void {
             if (loadingPreviewSaved) return;
-            var snapshot:BitmapData = new BitmapData(960, 550, false, 0x101820);
+            var snapshot:BitmapData = new BitmapData(Math.max(1, stage.stageWidth), Math.max(1, stage.stageHeight), false, 0x101820);
             snapshot.draw(stage);
             var stream:FileStream = new FileStream();
             stream.open(File.documentsDirectory.resolvePath("aqw-loading.png"), FileMode.WRITE);
@@ -151,9 +145,31 @@ package {
         }
 
         private function centerStage(event:Event = null):void {
-            // Centre SHOW_ALL's letterboxing and preserve the game's touch coordinates.
-            if (stage.align != "") stage.align = "";
-            if (stage.scaleMode != StageScaleMode.SHOW_ALL) stage.scaleMode = StageScaleMode.SHOW_ALL;
+            // Use the entire native viewport for the background, then fit the
+            // game's original canvas with one uniform transform.
+            if (stage.align != StageAlign.TOP_LEFT) stage.align = StageAlign.TOP_LEFT;
+            if (stage.scaleMode != StageScaleMode.NO_SCALE) stage.scaleMode = StageScaleMode.NO_SCALE;
+            var width:Number = Math.max(1, stage.stageWidth);
+            var height:Number = Math.max(1, stage.stageHeight);
+            var fit:Number = Math.min(width / 960, height / 550);
+            var left:Number = (width - 960 * fit) / 2;
+            var top:Number = (height - 550 * fit) / 2;
+            scaleX = scaleY = fit;
+            x = left;
+            y = top;
+            if (gameClient != null) {
+                gameClient.scaleX = gameClient.scaleY = fit;
+                gameClient.x = left;
+                gameClient.y = top;
+            }
+            var cover:Number = Math.max(width / backdropTexture.width, height / backdropTexture.height);
+            var fill:Matrix = new Matrix(cover, 0, 0, cover,
+                (width - backdropTexture.width * cover) / 2,
+                (height - backdropTexture.height * cover) / 2);
+            backdrop.graphics.clear();
+            backdrop.graphics.beginBitmapFill(backdropTexture, fill, false, true);
+            backdrop.graphics.drawRect(0, 0, width, height);
+            backdrop.graphics.endFill();
         }
 
         private function writeStartup(text:String):void {
@@ -273,6 +289,7 @@ package {
                 game["titleDomain"] = ApplicationDomain.currentDomain;
                 game.x = 0;
                 game.y = 0;
+                game.scrollRect = new Rectangle(0, 0, 960, 550);
                 stage.addChildAt(game, 1);
                 if (stage.getChildIndex(backdrop) >= stage.getChildIndex(game)) {
                     throw new Error("The background must remain behind the game.");
@@ -284,6 +301,8 @@ package {
                 loadPhase = "game running";
                 writeStartup("Game client attached; login and gameplay remain unverified");
                 writeStartup("Viewport centred: align=" + stage.align + "; scale=" + stage.scaleMode);
+                writeStartup("Game viewport: x=" + game.x + "; y=" + game.y + "; scale=" + game.scaleX +
+                    "; native=" + stage.stageWidth + "x" + stage.stageHeight);
                 writeStartup("Official asset base: " + game["sFilePath"]);
                 if (smokeAssetFile != null) checkExternalAssets();
             } catch (error:Error) {

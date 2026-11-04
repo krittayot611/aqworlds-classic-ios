@@ -39,7 +39,7 @@ def main():
                     raise RuntimeError('The game loading check failed. See loader-smoke.log.')
                 if ('Automatic game launch' in text and 'Game client attached' in text
                         and 'External asset check passed:' in text
-                        and 'Viewport centred: align=; scale=showAll' in text
+                        and 'Viewport centred: align=TL; scale=noScale' in text
                         and 'Background behind game; pointer input disabled' in text
                         and loading_preview.exists()):
                     if attached_at is None:
