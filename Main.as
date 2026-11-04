@@ -8,7 +8,6 @@ package {
     import flash.events.Event;
     import flash.events.IOErrorEvent;
     import flash.events.InvokeEvent;
-    import flash.events.MouseEvent;
     import flash.events.ProgressEvent;
     import flash.events.SecurityErrorEvent;
     import flash.events.UncaughtErrorEvent;
@@ -19,7 +18,6 @@ package {
     import flash.net.URLLoader;
     import flash.net.URLLoaderDataFormat;
     import flash.system.ApplicationDomain;
-    import flash.system.Capabilities;
     import flash.system.LoaderContext;
     import flash.text.TextField;
     import flash.text.TextFormat;
@@ -34,7 +32,6 @@ package {
         private var gameLoader:Loader = new Loader();
         private var panel:Sprite = new Sprite();
         private var message:TextField;
-        private var openButton:Sprite;
         private var versionLoader:URLLoader;
         private var binaryLoader:URLLoader;
         private var gameVersion:Object;
@@ -62,31 +59,12 @@ package {
             panel.graphics.beginFill(0x101820);
             panel.graphics.drawRect(0, 0, 960, 550);
             panel.graphics.endFill();
-            addLabel("AQWorlds Classic", 50, 70, 32);
-            addLabel("Tap to open the official game launcher.", 50, 125, 22);
-            addLabel("Touch client 0.1.4", 50, 165, 18);
-            addLabel(Capabilities.os + " / AIR " + Capabilities.version, 50, 200, 16);
-            message = addLabel("Ready", 50, 265, 20);
+            var title:TextField = addLabel("AQWorlds Classic", 50, 205, 32);
+            title.setTextFormat(new TextFormat("_sans", 32, 0xFFFFFF, false, null, null, null, null, "center"));
+            message = addLabel("Loading...", 50, 265, 20);
+            message.defaultTextFormat = new TextFormat("_sans", 20, 0xFFFFFF, false, null, null, null, null, "center");
             message.height = 155;
             message.wordWrap = true;
-
-            openButton = new Sprite();
-            openButton.graphics.beginFill(0x257C69);
-            openButton.graphics.drawRoundRect(0, 0, 240, 60, 12);
-            openButton.graphics.endFill();
-            openButton.x = 50;
-            openButton.y = 445;
-            openButton.buttonMode = true;
-            var caption:TextField = new TextField();
-            caption.defaultTextFormat = new TextFormat("_sans", 22, 0xFFFFFF, true);
-            caption.text = "Open game";
-            caption.x = 20;
-            caption.y = 14;
-            caption.width = 210;
-            caption.mouseEnabled = false;
-            openButton.addChild(caption);
-            panel.addChild(openButton);
-            openButton.addEventListener(MouseEvent.CLICK, openGame);
 
             loaderInfo.uncaughtErrorEvents.addEventListener(
                 UncaughtErrorEvent.UNCAUGHT_ERROR, onUnhandledError
@@ -100,7 +78,7 @@ package {
             gameLoader.contentLoaderInfo.addEventListener(
                 SecurityErrorEvent.SECURITY_ERROR, onLoadError
             );
-            writeStartup("UI ready");
+            writeStartup("Touch client 0.1.5: loading screen ready");
             try {
                 centerStage();
                 stage.addEventListener(Event.RESIZE, centerStage);
@@ -108,10 +86,18 @@ package {
                 NativeApplication.nativeApplication.systemIdleMode = SystemIdleMode.KEEP_AWAKE;
                 writeStartup("Input and screen configured");
             } catch (error:Error) {
-                // A device capability failure must leave the launch controls visible.
+                // A device capability failure must not prevent automatic startup.
                 writeStartup(error.name + " " + error.errorID + ": " + error.message);
-                message.text = "Ready. Device setting: " + error.message;
+
             }
+            // Start on the first frame, after the UI and launch arguments are ready.
+            addEventListener(Event.ENTER_FRAME, startAutomatically);
+        }
+
+        private function startAutomatically(event:Event):void {
+            removeEventListener(Event.ENTER_FRAME, startAutomatically);
+            writeStartup("Automatic game launch");
+            openGame();
         }
 
         private function onInvoke(event:InvokeEvent):void {
@@ -120,9 +106,6 @@ package {
                     smokeAssetFile = argument.substr(15);
                     if (!/^[A-Za-z0-9_-]+\.swf$/.test(smokeAssetFile)) smokeAssetFile = null;
                 }
-            }
-            if (event.arguments.indexOf("--smoke-game") >= 0 && message != null) {
-                openGame(null);
             }
         }
 
@@ -158,10 +141,9 @@ package {
             return label;
         }
 
-        private function openGame(event:MouseEvent):void {
+        private function openGame():void {
             if (loading) return;
             loading = true;
-            openButton.visible = false;
             message.text = "Checking the latest game version...";
             loadPhase = "version request";
             versionLoader = new URLLoader();

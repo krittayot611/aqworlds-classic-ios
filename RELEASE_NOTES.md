@@ -1,17 +1,20 @@
 Development preview of AQWorlds Classic for iOS and iPadOS.
 
-**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.4/AQWorlds-Classic-0.1.4.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
+**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.5/AQWorlds-Classic-0.1.5.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
 
-### Fixes
+### Changes
 
-- Centres the game on wide displays while preserving its aspect ratio and touch coordinates.
-- Supplies the official game asset URL so files loaded after login resolve to the game server instead of the local app folder.
-- Checks external asset loading through the game's own loader before publishing a release.
-- Keeps the existing bundle ID, app name and icon for in-place updates.
+- Opens the game automatically when the app starts. There is no Open game button.
+- Shows a simple loading screen while checking the game version and downloading the client.
+- Retains the centred viewport, official asset base URL, existing bundle ID and app icon.
+
+### Launch screen
+
+The HARMAN launch screen is still included by the free AIR SDK. Removing it requires a paid AIR SDK license; see the [AIR SDK FAQ](https://airsdk.harman.com/faq).
 
 ### Testing
 
-The release workflow checks compilation, IPA packaging, the game viewport and loading the official external asset library in AIR's mobile-device emulation on macOS. Version 0.1.3 reaches the login screen on a physical iPhone. Full login, server entry and gameplay with 0.1.4 still require on-device testing.
+The release workflow checks automatic startup without clicking a button, game loading, viewport centring and external asset loading in AIR mobile-device emulation on macOS. This does not verify login, server entry or gameplay on a physical iPhone or iPad.
 
 ### Installation
 
