@@ -1,0 +1,534 @@
+diff --git a/Main.as b/Main.as
+index 4126712..eb5cb6b 100644
+--- a/Main.as
++++ b/Main.as
+@@ -87,10 +87,11 @@ package {
+             gameLoader.contentLoaderInfo.addEventListener(
+                 SecurityErrorEvent.SECURITY_ERROR, onLoadError
+             );
+-            writeStartup("Touch client 0.1.8: loading screen ready");
++            writeStartup("Touch client 0.1.9: loading screen ready");
+             try {
+                 centerStage();
+                 stage.addEventListener(Event.RESIZE, centerStage);
++                NativeApplication.nativeApplication.addEventListener(Event.ACTIVATE, centerStage);
+                 Multitouch.inputMode = MultitouchInputMode.NONE;
+                 NativeApplication.nativeApplication.systemIdleMode = SystemIdleMode.KEEP_AWAKE;
+                 writeStartup("Input and screen configured");
+@@ -144,10 +145,10 @@ package {
+         }
+ 
+         private function centerStage(event:Event = null):void {
+-            // Scale the Stage itself to the display, keeping the legacy game's
+-            // logical 960 x 550 coordinates unchanged. No clipping or root transform.
++            // Keep loading full-screen. Once imported, preserve the game's aspect
++            // ratio and original logical coordinates; native views fill the gutters.
+             stage.align = "";
+-            stage.scaleMode = StageScaleMode.EXACT_FIT;
++            stage.scaleMode = gameClient == null ? StageScaleMode.EXACT_FIT : StageScaleMode.SHOW_ALL;
+             scaleX = scaleY = 1;
+             x = y = 0;
+             if (gameClient != null) {
+@@ -171,6 +172,13 @@ package {
+             backdrop.graphics.endFill();
+             // Game is Stage child zero; never leave an opaque overlay over it.
+             backdrop.visible = gameClient == null;
++            if (gameClient != null) {
++                try {
++                    writeStartup("Native margins: " + NativeMargins.show(smokeAssetFile != null));
++                } catch (error:Error) {
++                    writeStartup("Native margins unavailable: " + error.message);
++                }
++            }
+         }
+ 
+         private function writeStartup(text:String):void {
+diff --git a/MapRegression.as b/MapRegression.as
+index e85bd93..056de12 100644
+--- a/MapRegression.as
++++ b/MapRegression.as
+@@ -9,7 +9,7 @@ package {
+     // Run only by the release smoke check; never creates a game session.
+     public final class MapRegression {
+         public static function run(game:MovieClip):Object {
+-            if (game.stage.scaleMode != StageScaleMode.EXACT_FIT ||
++            if (game.stage.scaleMode != StageScaleMode.SHOW_ALL ||
+                 game.stage.stageWidth != 960 || game.stage.stageHeight != 550 ||
+                 game.stage.getChildAt(0) != game || game.x != 0 || game.y != 0 ||
+                 game.scaleX != 1 || game.scaleY != 1 || game.scrollRect != null) {
+diff --git a/Probe-app.xml b/Probe-app.xml
+index 81f5155..de60180 100644
+--- a/Probe-app.xml
++++ b/Probe-app.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <application xmlns="http://ns.adobe.com/air/application/51.3">
+     <id>com.personal.aqwprobe</id>
+-    <versionNumber>0.1.8</versionNumber>
++    <versionNumber>0.1.9</versionNumber>
+     <filename>AQWorldsClassic</filename>
+     <name>AQWorlds Classic</name>
+     <description>Personal touch client for the official AQWorlds Classic launcher.</description>
+@@ -60,5 +60,6 @@
+         ]]></InfoAdditions>
+         <requestedDisplayResolution>high</requestedDisplayResolution>
+     </iPhone>
++    <extensions><extensionID>com.aqw.classic.margins</extensionID></extensions>
+     <supportedLanguages>en</supportedLanguages>
+ </application>
+diff --git a/RELEASE_NOTES.md b/RELEASE_NOTES.md
+index b4ce33c..dba8edb 100644
+--- a/RELEASE_NOTES.md
++++ b/RELEASE_NOTES.md
+@@ -1,26 +1,27 @@
+ Development preview of AQWorlds Classic for iOS and iPadOS.
+ 
+-**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.8/AQWorlds-Classic-0.1.8.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
++**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.9/AQWorlds-Classic-0.1.9.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
+ 
+ ### Changes
+ 
+-- Loading, login and gameplay now fill the display without letterbox borders or cropped controls.
+-- Keeps the supplied texture on the loading screen.
+-- Preserves the original game coordinates used by map rendering and walking.
++- Restores the game's original aspect ratio during login and gameplay.
++- Uses the supplied texture to fill the surrounding screen margins through a native iOS view.
++- Keeps the loading screen full-screen.
++- Leaves game coordinates unchanged and disables input on the background view.
+ - Retains automatic startup, the app icon and the bundle ID for in-place updates.
+ 
+-Full-screen scaling adjusts the image proportions to each device's aspect ratio.
+-
+ ### Testing
+ 
+-Release checks cover automatic startup, official game and external asset loading, map rasterisation and movement-coordinate conversion in phone and tablet layouts using AIR mobile-device emulation on macOS. They do not sign into a game account. Full-screen rendering, touch input and gameplay still need confirmation on physical iOS devices.
++Release checks cover the native background in iOS Simulator, including texture loading, transparent game-area clipping, phone and tablet margin geometry, and disabled background input. AIR checks also exercise official game and external asset loading, map rasterisation and movement-coordinate conversion without signing in. Physical-device gameplay remains to be confirmed.
+ 
+ ### Installation
+ 
+ Sign and install the IPA with Sideloadly on Windows or macOS. To update an existing installation, reuse the same Apple ID, signing team and bundle ID.
+ 
+-The HARMAN launch screen remains part of the AIR free-tier build. Checksums are included in the release assets.
++Checksums are included in the release assets.
++
++AI tools assist with coding, debugging and documentation.
+ 
+ ---
+ 
+-AQWorlds and its game assets belong to Artix Entertainment. This project is not affiliated with or endorsed by Artix Entertainment.
++AQWorlds and all related game content, artwork and trademarks belong to Artix Entertainment. This independent project is not affiliated with, endorsed by or supported by Artix Entertainment. The software is provided as is, without warranty.
+diff --git a/build.py b/build.py
+index 01990ff..0ac6719 100644
+--- a/build.py
++++ b/build.py
+@@ -35,7 +35,9 @@ def main():
+             if path is None or not path.expanduser().is_file():
+                 parser.error("Provide " + name + " with a local signing file.")
+ 
++    subprocess.run([sys.executable, str(root / "build_margins.py"), "--sdk", str(sdk)], check=True)
+     build.mkdir(exist_ok=True)
++    shutil.copy2(root / "Background.jpg", build / "Background.jpg")
+     icon_dir = build / "icons"
+     icon_dir.mkdir(exist_ok=True)
+     for size in (29, 40, 50, 57, 58, 60, 72, 76, 80, 87, 100, 114, 120, 144, 152, 167, 180, 1024):
+@@ -54,6 +56,7 @@ def main():
+         java, "-Dflexlib=" + str(sdk / "frameworks"),
+         "-jar", str(sdk / "lib/mxmlc-cli.jar"), "+configname=air",
+         "-source-path=" + str(root),
++        "-external-library-path+=" + str(build / "Margins.swc"),
+         "-debug=false",
+         "-output=" + str(build / "Probe.swf"), str(root / "Main.as"),
+     ], check=True)
+@@ -64,11 +67,15 @@ def main():
+     descriptor.find("{" + namespace + "}id").text = args.app_id
+     version = descriptor.find("{" + namespace + "}versionNumber").text
+     descriptor.write(build / "Probe-app.xml", encoding="utf-8", xml_declaration=True)
++    validation = ET.parse(build / "Probe-app.xml")
++    extensions = validation.find("{" + namespace + "}extensions")
++    if extensions is not None: validation.getroot().remove(extensions)
++    validation.write(build / "Validation-app.xml", encoding="utf-8", xml_declaration=True)
+     # AIR's prepare command validates the application descriptor and file list.
+     subprocess.run([
+         java, "-jar", str(sdk / "lib/adt.jar"), "-cfg", str(root / "adt.cfg"), "-prepare",
+-        str(build / "Probe.airi"), str(build / "Probe-app.xml"),
+-        "-C", str(build), "Probe.swf", "icons",
++        str(build / "Probe.airi"), str(build / "Validation-app.xml"),
++        "-C", str(build), "Probe.swf", "icons", "Background.jpg",
+     ], check=True)
+     print("Compiled SWF and validated AIR descriptor.")
+ 
+@@ -76,11 +83,11 @@ def main():
+         # ADT requests the signing password locally. It is never written to a file.
+         subprocess.run([
+             java, "-jar", str(sdk / "lib/adt.jar"), "-cfg", str(root / "adt.cfg"), "-package",
+-            "-target", "ipa-test-interpreter", "-storetype", "pkcs12",
++            "-target", "ipa-test-interpreter", "-extdir", str(build / "extensions"), "-storetype", "pkcs12",
+             "-keystore", str(args.p12.expanduser().resolve()),
+             "-provisioning-profile", str(args.profile.expanduser().resolve()),
+             str(build / ("AQWorlds-Classic-" + version + ".ipa")),
+-            str(build / "Probe-app.xml"), "-C", str(build), "Probe.swf", "icons",
++            str(build / "Probe-app.xml"), "-C", str(build), "Probe.swf", "icons", "Background.jpg",
+         ], check=True)
+         print("IPA packaged. Installation, login and gameplay still require an iPhone test.")
+ 
+diff --git a/build_margins.py b/build_margins.py
+new file mode 100644
+index 0000000..50289da
+--- /dev/null
++++ b/build_margins.py
+@@ -0,0 +1,59 @@
++#!/usr/bin/env python3
++"""Build the iOS gutter-background native extension and its desktop fallback."""
++import argparse
++from pathlib import Path
++import shutil
++import subprocess
++import sys
++import zipfile
++
++
++def run(*args):
++    subprocess.run([str(a) for a in args], check=True)
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--sdk', required=True, type=Path)
++    args = parser.parse_args()
++    sdk = args.sdk.resolve()
++    root = Path(__file__).resolve().parent
++    build = root / 'build'
++    build.mkdir(exist_ok=True)
++    swc = build / 'Margins.swc'
++    run('java', '-Dflexlib=' + str(sdk / 'frameworks'), '-jar', sdk / 'lib/compc-cli.jar',
++        '+configname=air', '-source-path=' + str(root / 'native'),
++        '-include-classes=NativeMargins', '-output=' + str(swc))
++    extension_dir = build / 'extensions'
++    extension_dir.mkdir(exist_ok=True)
++    default = build / 'margin-default'
++    default.mkdir(exist_ok=True)
++    with zipfile.ZipFile(swc) as z:
++        (default / 'library.swf').write_bytes(z.read('library.swf'))
++    command = ['java', '-jar', str(sdk / 'lib/adt.jar'), '-package', '-target', 'ane',
++               str(extension_dir / 'AQWMargins.ane'), str(root / 'native/extension.xml'), '-swc', str(swc)]
++    # Linux can compile the ActionScript surface; native compilation runs on macOS.
++    if sys.platform != 'darwin':
++        return
++    for platform, sdk_name, target in [('iPhone-ARM', 'iphoneos', 'arm64-apple-ios12.0'),
++                                       ('iPhone-x86', 'iphonesimulator', 'x86_64-apple-ios12.0-simulator')]:
++        directory = build / ('margin-' + platform)
++        directory.mkdir(exist_ok=True)
++        shutil.copy2(default / 'library.swf', directory / 'library.swf')
++        system_sdk = subprocess.check_output(['xcrun', '--sdk', sdk_name, '--show-sdk-path'], text=True).strip()
++        run('xcrun', 'clang', '-target', target, '-isysroot', system_sdk,
++            '-fobjc-arc', '-fmodules', '-I', sdk / 'include', '-c', root / 'native/MarginBackdrop.m',
++            '-o', directory / 'Margins.o')
++        run('xcrun', 'libtool', '-static', '-o', directory / 'libAQWMargins.a', directory / 'Margins.o')
++        command += ['-platform', platform, '-C', str(directory), 'library.swf', 'libAQWMargins.a']
++    command += ['-platform', 'default', '-C', str(default), 'library.swf']
++    run(*command)
++    unpacked = build / 'unpacked-extensions' / 'AQWMargins.ane'
++    unpacked.mkdir(parents=True, exist_ok=True)
++    with zipfile.ZipFile(extension_dir / 'AQWMargins.ane') as z:
++        z.extractall(unpacked)
++    print('Native gutter background compiled for arm64 iOS and x86_64 iOS Simulator.')
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/cloud_build.py b/cloud_build.py
+index 95cbf16..70bedd7 100644
+--- a/cloud_build.py
++++ b/cloud_build.py
+@@ -91,11 +91,12 @@ def main():
+         subprocess.run([
+             "java", "-Xmx2048m", "-jar", str(sdk / "lib/adt.jar"),
+             "-cfg", str(root / "adt.cfg"), "-package",
+-            "-target", "ipa-test-interpreter", "-storetype", "pkcs12",
++            "-target", "ipa-test-interpreter",
++            "-extdir", str(root / "build/extensions"), "-storetype", "pkcs12",
+             "-keystore", str(p12), "-storepass", password,
+             "-provisioning-profile", str(profile),
+             str(temporary_ipa), str(root / "build/Probe-app.xml"),
+-            "-C", str(root / "build"), "Probe.swf", "icons",
++            "-C", str(root / "build"), "Probe.swf", "icons", "Background.jpg",
+         ], check=True)
+         unpacked = directory / "unpacked"
+         subprocess.run(["unzip", "-q", str(temporary_ipa), "-d", str(unpacked)], check=True)
+diff --git a/loader_smoke.py b/loader_smoke.py
+index 859aed7..ad7f716 100644
+--- a/loader_smoke.py
++++ b/loader_smoke.py
+@@ -25,6 +25,7 @@ def main():
+     command = [str(args.sdk.resolve() / 'bin/adl'), '-profile', 'mobileDevice',
+                # ADL expects portrait dimensions, then applies the descriptor's landscape orientation.
+                '-screensize', args.screen_size,
++               '-extdir', str(root / 'build/unpacked-extensions'),
+                str(root / 'build/Probe-app.xml'), str(root / 'build'), '--',
+                '--smoke-assets=Assets_20260702.swf']
+     print('Checking automatic startup and official external assets in AIR.', flush=True)
+@@ -41,7 +42,7 @@ def main():
+                     raise RuntimeError('The game loading check failed. See loader-smoke.log.')
+                 if ('Automatic game launch' in text and 'Game client attached' in text
+                         and 'External asset check passed:' in text
+-                        and 'Viewport centred: align=; scale=exactFit' in text
++                        and 'Viewport centred: align=; scale=showAll' in text
+                         and 'Game is Stage child zero; background input disabled' in text
+                         and 'Map regression passed:' in text
+                         and loading_preview.exists()):
+@@ -49,7 +50,7 @@ def main():
+                         attached_at = time.monotonic()
+                     if time.monotonic() - attached_at >= 8:
+                         result = {'automatic_launch': True, 'game_imported': True, 'stage_access_passed': True,
+-                                  'viewport_centred': True, 'full_screen_scaling': True,
++                                  'viewport_centred': True, 'game_aspect_ratio_preserved': True,
+                                   'screen_size': args.screen_size, 'external_assets_loaded': True,
+                                   'legacy_game_coordinates': True, 'map_rasterization_checked': True,
+                                   'movement_coordinates_checked': True, 'loading_background_captured': True,
+diff --git a/native/MarginBackdrop.m b/native/MarginBackdrop.m
+new file mode 100644
+index 0000000..f144d83
+--- /dev/null
++++ b/native/MarginBackdrop.m
+@@ -0,0 +1,131 @@
++#import <UIKit/UIKit.h>
++#import <string.h>
++#import "FlashRuntimeExtensions.h"
++
++// A native view paints only the physical gutters outside AIR's SHOW_ALL canvas.
++// It never changes the AIR view, game transforms, Stage coordinates or hit tests.
++@interface AQWMarginBackdrop : UIView
++@property(nonatomic, strong) UIImage *texture;
++- (CGRect)gameRect;
++@end
++
++@implementation AQWMarginBackdrop
++- (CGRect)gameRect {
++    CGFloat scale = MIN(self.bounds.size.width / 960.0, self.bounds.size.height / 550.0);
++    CGSize game = CGSizeMake(960.0 * scale, 550.0 * scale);
++    return CGRectMake((self.bounds.size.width - game.width) / 2.0,
++                      (self.bounds.size.height - game.height) / 2.0, game.width, game.height);
++}
++- (void)layoutSubviews { [super layoutSubviews]; [self setNeedsDisplay]; }
++- (void)drawRect:(CGRect)rect {
++    if (!self.texture || CGRectIsEmpty(self.bounds)) return;
++    CGContextRef context = UIGraphicsGetCurrentContext();
++    CGContextSaveGState(context);
++    UIBezierPath *gutters = [UIBezierPath bezierPathWithRect:self.bounds];
++    [gutters appendPath:[UIBezierPath bezierPathWithRect:[self gameRect]]];
++    gutters.usesEvenOddFillRule = YES;
++    [gutters addClip];
++    CGFloat scale = MAX(self.bounds.size.width / self.texture.size.width,
++                        self.bounds.size.height / self.texture.size.height);
++    CGSize size = CGSizeMake(self.texture.size.width * scale, self.texture.size.height * scale);
++    [self.texture drawInRect:CGRectMake((self.bounds.size.width - size.width) / 2.0,
++                                       (self.bounds.size.height - size.height) / 2.0,
++                                       size.width, size.height)];
++    CGContextRestoreGState(context);
++}
++@end
++
++static AQWMarginBackdrop *backdrop;
++
++static UIWindow *AQWGameWindow(void) {
++    UIApplication *application = UIApplication.sharedApplication;
++    if (@available(iOS 13.0, *)) {
++        for (UIScene *scene in application.connectedScenes) {
++            if (![scene isKindOfClass:UIWindowScene.class]) continue;
++            for (UIWindow *window in ((UIWindowScene *)scene).windows)
++                if (window.isKeyWindow) return window;
++        }
++    }
++    for (UIWindow *window in application.windows) if (window.isKeyWindow) return window;
++    for (UIWindow *window in application.windows)
++        if (!window.hidden && window.windowLevel == UIWindowLevelNormal) return window;
++    return nil;
++}
++
++static BOOL AQWVerifyClipping(UIImage *texture, CGSize size) {
++    AQWMarginBackdrop *test = [[AQWMarginBackdrop alloc] initWithFrame:(CGRect){CGPointZero, size}];
++    test.texture = texture;
++    UIGraphicsBeginImageContextWithOptions(size, NO, 1.0);
++    [test drawRect:test.bounds];
++    UIImage *rendered = UIGraphicsGetImageFromCurrentImageContext();
++    UIGraphicsEndImageContext();
++    size_t width = (size_t)size.width, height = (size_t)size.height;
++    uint8_t *pixels = calloc(width * height, 4);
++    if (!pixels || !rendered) { free(pixels); return NO; }
++    CGColorSpaceRef color = CGColorSpaceCreateDeviceRGB();
++    CGContextRef context = CGBitmapContextCreate(pixels, width, height, 8, width * 4, color,
++        kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
++    if (!context) { CGColorSpaceRelease(color); free(pixels); return NO; }
++    CGContextDrawImage(context, CGRectMake(0, 0, width, height), rendered.CGImage);
++    CGRect game = [test gameRect];
++    size_t x = game.origin.x > 1 ? (size_t)(game.origin.x / 2) : width / 2;
++    size_t y = game.origin.x > 1 ? height / 2 : (size_t)(game.origin.y / 2);
++    BOOL valid = pixels[(y * width + x) * 4 + 3] > 0 &&
++        pixels[((height / 2) * width + width / 2) * 4 + 3] == 0 &&
++        fabs(game.size.width / game.size.height - 960.0 / 550.0) < 0.001;
++    CGContextRelease(context); CGColorSpaceRelease(color); free(pixels);
++    return valid;
++}
++
++static FREObject AQWShowMargins(FREContext context, void *data, uint32_t argc, FREObject argv[]) {
++    __block NSString *result = @"unavailable";
++    uint32_t verify = 0;
++    if (argc > 0) FREGetObjectAsBool(argv[0], &verify);
++    void (^show)(void) = ^{
++        UIView *host = AQWGameWindow().rootViewController.view;
++        NSString *path = [NSBundle.mainBundle pathForResource:@"Background" ofType:@"jpg"];
++        UIImage *image = path ? [UIImage imageWithContentsOfFile:path] : nil;
++        if (!host || !image) return;
++        if (!backdrop) {
++            backdrop = [[AQWMarginBackdrop alloc] initWithFrame:host.bounds];
++            backdrop.opaque = NO;
++            backdrop.backgroundColor = UIColor.clearColor;
++            backdrop.userInteractionEnabled = NO;
++            backdrop.accessibilityElementsHidden = YES;
++            backdrop.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++        }
++        if (verify && (!AQWVerifyClipping(image, CGSizeMake(1024, 472)) ||
++                       !AQWVerifyClipping(image, CGSizeMake(1024, 768)))) {
++            result = @"clipping check failed"; return;
++        }
++        backdrop.texture = image;
++        backdrop.frame = host.bounds;
++        if (backdrop.superview != host) { [backdrop removeFromSuperview]; [host addSubview:backdrop]; }
++        [host bringSubviewToFront:backdrop];
++        [backdrop setNeedsDisplay];
++        CGRect game = [backdrop gameRect];
++        result = [NSString stringWithFormat:@"active; view=%.1fx%.1f; game=%.1f,%.1f,%.1f,%.1f; input=disabled",
++                  host.bounds.size.width, host.bounds.size.height,
++                  game.origin.x, game.origin.y, game.size.width, game.size.height];
++        if (verify) result = [result stringByAppendingString:@"; clipping=verified"];
++    };
++    if (NSThread.isMainThread) show(); else dispatch_sync(dispatch_get_main_queue(), show);
++    FREObject value = NULL;
++    const char *utf8 = result.UTF8String;
++    FRENewObjectFromUTF8((uint32_t)strlen(utf8), (const uint8_t *)utf8, &value);
++    return value;
++}
++static void AQWContextInitializer(void *data, const uint8_t *type, FREContext context,
++                                  uint32_t *count, const FRENamedFunction **functions) {
++    static FRENamedFunction entries[] = {{(const uint8_t *)"show", NULL, &AQWShowMargins}};
++    *count = 1; *functions = entries;
++}
++static void AQWContextFinalizer(FREContext context) {
++    dispatch_async(dispatch_get_main_queue(), ^{ [backdrop removeFromSuperview]; backdrop = nil; });
++}
++__attribute__((visibility("default")))
++void AQWMarginsInitializer(void **data, FREContextInitializer *initializer, FREContextFinalizer *finalizer) {
++    *data = NULL; *initializer = &AQWContextInitializer; *finalizer = &AQWContextFinalizer;
++}
++__attribute__((visibility("default")))
++void AQWMarginsFinalizer(void *data) {}
+diff --git a/native/NativeMargins.as b/native/NativeMargins.as
+new file mode 100644
+index 0000000..1ea869d
+--- /dev/null
++++ b/native/NativeMargins.as
+@@ -0,0 +1,14 @@
++package {
++    import flash.external.ExtensionContext;
++    import flash.system.Capabilities;
++
++    public final class NativeMargins {
++        private static var context:ExtensionContext;
++        public static function show(verify:Boolean = false):String {
++            if (Capabilities.os.indexOf("iPhone") != 0) return "desktop preview";
++            if (context == null) context = ExtensionContext.createExtensionContext("com.aqw.classic.margins", "");
++            if (context == null) throw new Error("The native background extension is unavailable.");
++            return String(context.call("show", verify));
++        }
++    }
++}
+diff --git a/native_smoke.py b/native_smoke.py
+new file mode 100644
+index 0000000..d7ad682
+--- /dev/null
++++ b/native_smoke.py
+@@ -0,0 +1,84 @@
++#!/usr/bin/env python3
++"""Verify the native gutter background alongside the actual AIR game in iOS Simulator."""
++import argparse
++import json
++import os
++from pathlib import Path
++import plistlib
++import secrets
++import subprocess
++import tempfile
++import time
++import zipfile
++from cloud_build import prepare_packaging_identity
++
++
++def run(*command, **kwargs):
++    return subprocess.run([str(c) for c in command], check=True, **kwargs)
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--sdk', required=True, type=Path)
++    args = parser.parse_args()
++    root = Path(__file__).resolve().parent
++    sdk = args.sdk.resolve()
++    output = root / 'output/native'
++    output.mkdir(parents=True, exist_ok=True)
++    platform_sdk = subprocess.check_output(['xcrun', '--sdk', 'iphonesimulator', '--show-sdk-path'], text=True).strip()
++    groups = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json'], text=True))['devices']
++    choices = [d for group in groups.values() for d in group if d.get('isAvailable') and d['name'].startswith('iPhone')]
++    if not choices: raise RuntimeError('No iPhone simulator is available.')
++    choices.sort(key=lambda d: (d['state'] != 'Booted', d['name']))
++    device = choices[0]; udid = device['udid']
++    print('Starting native-background check on ' + device['name'], flush=True)
++    if device['state'] != 'Booted': run('xcrun', 'simctl', 'boot', udid)
++    run('xcrun', 'simctl', 'bootstatus', udid, '-b', timeout=150)
++    with tempfile.TemporaryDirectory(prefix='aqw-margins-simulator-') as temporary:
++        directory = Path(temporary)
++        password = secrets.token_urlsafe(24)
++        if os.environ.get('GITHUB_ACTIONS'): print('::add-mask::' + password, flush=True)
++        p12, profile = prepare_packaging_identity(directory, password)
++        ipa = directory / 'simulator.ipa'
++        run('java', '-Xmx2048m', '-jar', sdk / 'lib/adt.jar', '-cfg', root / 'adt.cfg',
++            '-package', '-target', 'ipa-test-interpreter-simulator',
++            '-extdir', root / 'build/extensions', '-storetype', 'pkcs12', '-keystore', p12,
++            '-storepass', password, '-provisioning-profile', profile, ipa, root / 'build/Probe-app.xml',
++            '-platformsdk', platform_sdk, '-C', root / 'build', 'Probe.swf', 'icons', 'Background.jpg')
++        with zipfile.ZipFile(ipa) as z: z.extractall(directory / 'unpacked')
++        app, = (directory / 'unpacked/Payload').glob('*.app')
++        info = plistlib.loads((app / 'Info.plist').read_bytes()); bundle_id = info['CFBundleIdentifier']
++        (app / 'embedded.mobileprovision').unlink(missing_ok=True)
++        run('codesign', '--force', '--sign', '-', app)
++        run('xcrun', 'simctl', 'install', udid, app)
++        data = Path(subprocess.check_output(['xcrun', 'simctl', 'get_app_container', udid, bundle_id, 'data'], text=True).strip())
++        marker = data / 'Documents/aqw-startup.log'; marker.unlink(missing_ok=True)
++        run('xcrun', 'simctl', 'launch', udid, bundle_id, '--smoke-assets=Assets_20260702.swf')
++        try:
++            deadline = time.monotonic() + 100
++            while time.monotonic() < deadline:
++                text = marker.read_text() if marker.exists() else ''
++                if 'Load failed (' in text: raise RuntimeError('Game startup failed in iOS Simulator.')
++                if any(s in text for s in ('Native margins: unavailable', 'Native margins unavailable:', 'clipping check failed')):
++                    raise RuntimeError('The native background extension did not initialize correctly.')
++                if all(s in text for s in ('Native margins: active;', 'clipping=verified',
++                                          'scale=showAll', 'Map regression passed:', 'External asset check passed:')):
++                    time.sleep(5)
++                    result = {'runtime': 'iOS Simulator', 'device': device['name'],
++                              'native_extension_loaded': True, 'texture_resource_loaded': True,
++                              'phone_and_tablet_gutters_painted': True, 'game_area_transparent': True,
++                              'background_input_disabled': True, 'game_aspect_ratio_preserved': True,
++                              'map_and_movement_coordinates_checked': True, 'physical_device_verified': False}
++                    (output / 'native-background.json').write_text(json.dumps(result, indent=2) + '\n')
++                    print(json.dumps(result), flush=True)
++                    return
++                time.sleep(1)
++            raise RuntimeError('Native background verification did not finish in iOS Simulator.')
++        finally:
++            if marker.exists(): (output / 'startup.log').write_bytes(marker.read_bytes())
++            run('xcrun', 'simctl', 'io', udid, 'screenshot', output / 'native-background.png')
++            subprocess.run(['xcrun', 'simctl', 'terminate', udid, bundle_id], check=False)
++
++
++if __name__ == '__main__':
++    main()
