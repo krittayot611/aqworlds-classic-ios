@@ -6,17 +6,19 @@
 
 An unofficial iOS and iPadOS port of AQWorlds Classic.
 
-**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.4/AQWorlds-Classic-0.1.4.ipa)** · [Release notes](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v0.1.4)
+**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.5/AQWorlds-Classic-0.1.5.ipa)** · [Release notes](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v0.1.5)
 
-Version 0.1.4 · Development preview
+Version 0.1.5 · Development preview
 
 </div>
 
 ## Status
 
-This project is under development. Version 0.1.4 centres the game viewport and supplies the official asset base URL used after login. The release checks cover game loading, centring and downloading the external asset library through the game's own loader in AIR mobile-device emulation on macOS.
+This project is under development. Version 0.1.5 starts loading the game automatically when the app opens. Automatic startup, the centred viewport and external asset loading are checked in AIR mobile-device emulation on macOS.
 
-Version 0.1.3 reaches the login screen on a physical iPhone. On-device testing of 0.1.4, full login, server entry and gameplay remain pending.
+The AIR free-tier HARMAN launch screen is still shown at startup. Removing it requires a paid AIR SDK license.
+
+Version 0.1.3 reaches the login screen on a physical iPhone. On-device testing of 0.1.5, full login, server entry and gameplay remain pending.
 
 ## Installation
 
@@ -29,7 +31,7 @@ Use [Sideloadly](https://sideloadly.io/) on a Windows PC or Mac to sign and inst
 5. Enter your Apple ID, click **Start** and complete authentication.
 6. If prompted, enable **Settings → Privacy & Security → Developer Mode**, then restart and confirm. For an **Untrusted Developer** message, trust the signing profile under **Settings → General → VPN & Device Management**.
 
-Open **AQWorlds Classic** and tap **Open game**. An internet connection is required.
+Open **AQWorlds Classic**. The app loads the login screen automatically. An internet connection is required.
 
 Free Apple accounts generally require re-signing every seven days. See the [Sideloadly FAQ](https://sideloadly.io/faq) for refresh options and troubleshooting.
 
@@ -43,7 +45,7 @@ The original package uses `com.personal.aqwprobe`. Retain your existing signing 
 
 The current download is an unsigned IPA for iPhone and iPad. Personal signing is required.
 
-[Checksums](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.4/SHA256SUMS.txt) · [All releases](https://github.com/krittayot611/aqworlds-classic-ios/releases)
+[Checksums](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.5/SHA256SUMS.txt) · [All releases](https://github.com/krittayot611/aqworlds-classic-ios/releases)
 
 ## Issues
 
