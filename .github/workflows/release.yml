@@ -60,6 +60,27 @@ jobs:
           descriptor.write_text(descriptor.read_text().replace('/extension/3.1', '/extension/33.1'))
           descriptor = Path('Probe-app.xml')
           descriptor.write_text(descriptor.read_text().replace('<key>UIDeviceFamily</key>', '<key>MinimumOSVersion</key><string>12.0</string><key>UIDeviceFamily</key>'))
+          fixes = [('cloud_build.py',
+            [('"-extdir", str(root / "build/extensions"), ', ''),
+             ('str(temporary_ipa), str(root / "build/Probe-app.xml"),',
+              'str(temporary_ipa), str(root / "build/Probe-app.xml"),\n'
+              '            "-extdir", str(root / "build/extensions"),')]),
+           ('build.py',
+            [('"-extdir", str(build / "extensions"), ', ''),
+             ('str(build / "Probe-app.xml"), "-C", str(build)',
+              'str(build / "Probe-app.xml"), "-extdir", str(build / "extensions"), "-C", str(build)')]),
+           ('native_smoke.py',
+            [("'-extdir', root / 'build/extensions', ", ''),
+             ("'-platformsdk', platform_sdk, '-C'",
+              "'-platformsdk', platform_sdk, '-extdir', root / 'build/extensions', '-C'")])]
+          for filename, replacements in fixes:
+              p = Path(filename)
+              text = p.read_text()
+              for before, after in replacements:
+                  if text.count(before) != 1:
+                      raise RuntimeError('Unexpected packaging command in ' + filename)
+                  text = text.replace(before, after, 1)
+              p.write_text(text)
           PYFIX
           fi
       - uses: actions/setup-java@v6
