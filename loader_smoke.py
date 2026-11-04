@@ -60,6 +60,8 @@ def main():
                 time.sleep(1)
             raise RuntimeError('The game did not finish loading within 90 seconds. See loader-smoke.log.')
         finally:
+            if process.poll() is None and not (output / 'loader-smoke.png').exists():
+                subprocess.run(['screencapture', '-x', str(output / 'loader-smoke.png')], check=False)
             if startup.exists():
                 (output / 'loader-smoke-startup.log').write_bytes(startup.read_bytes())
             if process.poll() is None:

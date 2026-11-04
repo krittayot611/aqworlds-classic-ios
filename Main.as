@@ -49,6 +49,7 @@ package {
         private var smokeAssetFile:String;
         private var assetProbe:Loader;
         private var gameClient:MovieClip;
+        private var loadingPreviewSaved:Boolean = false;
 
         public function Main() {
             writeStartup("Main constructor");
@@ -115,6 +116,9 @@ package {
                     if (!/^[A-Za-z0-9_-]+\.swf$/.test(smokeAssetFile)) smokeAssetFile = null;
                 }
             }
+            // INVOKE can arrive after the first frame. Capture whichever loading
+            // state is currently visible without delaying normal automatic startup.
+            if (smokeAssetFile != null && message != null && panel.visible) captureLoadingPreview();
         }
 
         private function createBackdrop():void {
@@ -134,6 +138,7 @@ package {
         }
 
         private function captureLoadingPreview():void {
+            if (loadingPreviewSaved) return;
             var snapshot:BitmapData = new BitmapData(960, 550, false, 0x101820);
             snapshot.draw(stage);
             var stream:FileStream = new FileStream();
@@ -141,6 +146,7 @@ package {
             stream.writeBytes(snapshot.encode(snapshot.rect, new PNGEncoderOptions()));
             stream.close();
             snapshot.dispose();
+            loadingPreviewSaved = true;
             writeStartup("Loading background preview saved");
         }
 
