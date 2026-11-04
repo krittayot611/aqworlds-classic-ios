@@ -11,10 +11,12 @@ import time
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sdk', required=True, type=Path)
+    parser.add_argument('--screen-size', default='472x1024:472x1024')
+    parser.add_argument('--label', choices=['phone', 'tablet'], default='phone')
     args = parser.parse_args()
     root = Path(__file__).resolve().parent
-    output = root / 'output'
-    output.mkdir(exist_ok=True)
+    output = root / 'output' / args.label
+    output.mkdir(parents=True, exist_ok=True)
     console_path = output / 'loader-smoke.log'
     startup = Path.home() / 'Documents/aqw-startup.log'
     startup.unlink(missing_ok=True)
@@ -22,7 +24,7 @@ def main():
     loading_preview.unlink(missing_ok=True)
     command = [str(args.sdk.resolve() / 'bin/adl'), '-profile', 'mobileDevice',
                # ADL expects portrait dimensions, then applies the descriptor's landscape orientation.
-               '-screensize', '472x1024:472x1024',
+               '-screensize', args.screen_size,
                str(root / 'build/Probe-app.xml'), str(root / 'build'), '--',
                '--smoke-assets=Assets_20260702.swf']
     print('Checking automatic startup and official external assets in AIR.', flush=True)
@@ -39,7 +41,7 @@ def main():
                     raise RuntimeError('The game loading check failed. See loader-smoke.log.')
                 if ('Automatic game launch' in text and 'Game client attached' in text
                         and 'External asset check passed:' in text
-                        and 'Viewport centred: align=; scale=showAll' in text
+                        and 'Viewport centred: align=; scale=exactFit' in text
                         and 'Game is Stage child zero; background input disabled' in text
                         and 'Map regression passed:' in text
                         and loading_preview.exists()):
@@ -47,7 +49,8 @@ def main():
                         attached_at = time.monotonic()
                     if time.monotonic() - attached_at >= 8:
                         result = {'automatic_launch': True, 'game_imported': True, 'stage_access_passed': True,
-                                  'viewport_centred': True, 'external_assets_loaded': True,
+                                  'viewport_centred': True, 'full_screen_scaling': True,
+                                  'screen_size': args.screen_size, 'external_assets_loaded': True,
                                   'legacy_game_coordinates': True, 'map_rasterization_checked': True,
                                   'movement_coordinates_checked': True, 'loading_background_captured': True,
                                   'runtime': 'macOS AIR mobileDevice emulation',

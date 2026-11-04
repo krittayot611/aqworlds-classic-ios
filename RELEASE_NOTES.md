@@ -1,18 +1,19 @@
 Development preview of AQWorlds Classic for iOS and iPadOS.
 
-**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.7/AQWorlds-Classic-0.1.7.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
+**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.8/AQWorlds-Classic-0.1.8.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
 
-### Fixes
+### Changes
 
-- Restores the original game coordinates and Stage child order used by map rendering and walking.
-- Removes the wrapper transform and clipping rectangle added in 0.1.6.
-- Retains automatic startup and the supplied loading background.
-- Displays the surrounding background through full-screen source scaling where supported.
-- Keeps the bundle ID, app name and icon for in-place updates.
+- Loading, login and gameplay now fill the display without letterbox borders or cropped controls.
+- Keeps the supplied texture on the loading screen.
+- Preserves the original game coordinates used by map rendering and walking.
+- Retains automatic startup, the app icon and the bundle ID for in-place updates.
+
+Full-screen scaling adjusts the image proportions to each device's aspect ratio.
 
 ### Testing
 
-The release checks exercise the official World map rasteriser and movement-coordinate conversion with a synthetic map, without signing in. They also check automatic startup, game loading and external asset loading in AIR mobile-device emulation on macOS. Physical-device login, server entry and gameplay remain unverified for 0.1.7.
+Release checks cover automatic startup, official game and external asset loading, map rasterisation and movement-coordinate conversion in phone and tablet layouts using AIR mobile-device emulation on macOS. They do not sign into a game account. Full-screen rendering, touch input and gameplay still need confirmation on physical iOS devices.
 
 ### Installation
 

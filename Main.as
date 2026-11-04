@@ -8,7 +8,6 @@ package {
     import flash.display.MovieClip;
     import flash.display.Sprite;
     import flash.display.StageScaleMode;
-    import flash.display.StageAlign;
     import flash.display.StageDisplayState;
     import flash.events.Event;
     import flash.events.IOErrorEvent;
@@ -20,7 +19,6 @@ package {
     import flash.filesystem.FileMode;
     import flash.filesystem.FileStream;
     import flash.geom.Matrix;
-    import flash.geom.Rectangle;
     import flash.net.URLRequest;
     import flash.net.URLLoader;
     import flash.net.URLLoaderDataFormat;
@@ -53,9 +51,6 @@ package {
         private var assetProbe:Loader;
         private var gameClient:MovieClip;
         private var loadingPreviewSaved:Boolean = false;
-        private var nativeWidth:Number;
-        private var nativeHeight:Number;
-        private var sourceBounds:Rectangle;
 
         public function Main() {
             writeStartup("Main constructor");
@@ -92,7 +87,7 @@ package {
             gameLoader.contentLoaderInfo.addEventListener(
                 SecurityErrorEvent.SECURITY_ERROR, onLoadError
             );
-            writeStartup("Touch client 0.1.7: loading screen ready");
+            writeStartup("Touch client 0.1.8: loading screen ready");
             try {
                 centerStage();
                 stage.addEventListener(Event.RESIZE, centerStage);
@@ -149,16 +144,10 @@ package {
         }
 
         private function centerStage(event:Event = null):void {
-            // Legacy map rasterisation and walking expect an untransformed game
-            // at the Stage origin and the original 960 x 550 coordinate system.
-            if (isNaN(nativeWidth) || nativeWidth <= 0) {
-                stage.align = StageAlign.TOP_LEFT;
-                stage.scaleMode = StageScaleMode.NO_SCALE;
-                nativeWidth = stage.stageWidth;
-                nativeHeight = stage.stageHeight;
-            }
+            // Scale the Stage itself to the display, keeping the legacy game's
+            // logical 960 x 550 coordinates unchanged. No clipping or root transform.
             stage.align = "";
-            stage.scaleMode = StageScaleMode.SHOW_ALL;
+            stage.scaleMode = StageScaleMode.EXACT_FIT;
             scaleX = scaleY = 1;
             x = y = 0;
             if (gameClient != null) {
@@ -166,41 +155,22 @@ package {
                 gameClient.x = gameClient.y = 0;
                 gameClient.scrollRect = null;
             }
-            var fit:Number = Math.min(nativeWidth / 960, nativeHeight / 550);
-            var width:Number = nativeWidth / fit;
-            var height:Number = nativeHeight / fit;
-            sourceBounds = new Rectangle((960 - width) / 2, (550 - height) / 2, width, height);
-            try {
-                stage.fullScreenSourceRect = sourceBounds;
-                if (stage.displayState == StageDisplayState.NORMAL) {
-                    stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
-                }
-            } catch (unsupported:Error) {
-                // Keep the game's coordinate system intact on runtimes which
-                // cannot show a background outside the original canvas.
-                writeStartup("Full-screen background unavailable: " + unsupported.message);
+            // Source-rectangle scaling is not used: iOS left physical gutters
+            // outside that rectangle even when desktop AIR filled them.
+            stage.fullScreenSourceRect = null;
+            if (stage.displayState == StageDisplayState.NORMAL) {
+                stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
             }
-            var cover:Number = Math.max(width / backdropTexture.width, height / backdropTexture.height);
+            var cover:Number = Math.max(960 / backdropTexture.width, 550 / backdropTexture.height);
             var fill:Matrix = new Matrix(cover, 0, 0, cover,
                 (960 - backdropTexture.width * cover) / 2,
                 (550 - backdropTexture.height * cover) / 2);
             backdrop.graphics.clear();
             backdrop.graphics.beginBitmapFill(backdropTexture, fill, false, true);
-            if (gameClient == null) {
-                backdrop.graphics.drawRect(sourceBounds.x, sourceBounds.y, width, height);
-            } else {
-                // The game must be Stage child zero. Draw only the surrounding
-                // margins in the overlay so neither its image nor input is covered.
-                if (sourceBounds.x < 0) {
-                    backdrop.graphics.drawRect(sourceBounds.x, 0, -sourceBounds.x, 550);
-                    backdrop.graphics.drawRect(960, 0, -sourceBounds.x, 550);
-                }
-                if (sourceBounds.y < 0) {
-                    backdrop.graphics.drawRect(sourceBounds.x, sourceBounds.y, width, -sourceBounds.y);
-                    backdrop.graphics.drawRect(sourceBounds.x, 550, width, -sourceBounds.y);
-                }
-            }
+            backdrop.graphics.drawRect(0, 0, 960, 550);
             backdrop.graphics.endFill();
+            // Game is Stage child zero; never leave an opaque overlay over it.
+            backdrop.visible = gameClient == null;
         }
 
         private function writeStartup(text:String):void {
