@@ -6,19 +6,19 @@
 
 An unofficial iOS and iPadOS port of AQWorlds Classic.
 
-**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.7/AQWorlds-Classic-0.1.7.ipa)** · [Release notes](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v0.1.7)
+**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.8/AQWorlds-Classic-0.1.8.ipa)** · [Release notes](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v0.1.8)
 
-Version 0.1.7 · Development preview
+Version 0.1.8 · Development preview
 
 </div>
 
 ## Status
 
-This project is under development. Version 0.1.7 restores the game's original Stage coordinates and display-list order to address the map rendering and movement regression introduced in 0.1.6. The release checks exercise the official map rasteriser and movement-coordinate conversion without signing in.
+This project is under development. Version 0.1.8 fills the display during loading, login and gameplay, keeping all controls visible. The image proportions adjust to each device's aspect ratio. The supplied loading background and automatic startup are retained.
+
+Phone and tablet layouts pass AIR mobile-device emulation checks on macOS, including the official map rasteriser and movement-coordinate conversion. Full-screen rendering, touch input and gameplay still need confirmation on physical iOS devices.
 
 The AIR free-tier HARMAN launch screen is still shown at startup. Removing it requires a paid AIR SDK license.
-
-Full login, server entry and gameplay with 0.1.7 still require testing on a physical device.
 
 ## Installation
 
@@ -45,7 +45,7 @@ The original package uses `com.personal.aqwprobe`. Retain your existing signing 
 
 The current download is an unsigned IPA for iPhone and iPad. Personal signing is required.
 
-[Checksums](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.7/SHA256SUMS.txt) · [All releases](https://github.com/krittayot611/aqworlds-classic-ios/releases)
+[Checksums](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.8/SHA256SUMS.txt) · [All releases](https://github.com/krittayot611/aqworlds-classic-ios/releases)
 
 ## Issues
 
