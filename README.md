@@ -6,19 +6,19 @@
 
 An unofficial iOS and iPadOS port of AQWorlds Classic.
 
-**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.5/AQWorlds-Classic-0.1.5.ipa)** · [Release notes](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v0.1.5)
+**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.6/AQWorlds-Classic-0.1.6.ipa)** · [Release notes](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v0.1.6)
 
-Version 0.1.5 · Development preview
+Version 0.1.6 · Development preview
 
 </div>
 
 ## Status
 
-This project is under development. Version 0.1.5 starts loading the game automatically when the app opens. Automatic startup, the centred viewport and external asset loading are checked in AIR mobile-device emulation on macOS.
+This project is under development. Version 0.1.6 adds the supplied background texture to the loading screen and the space around the centred game. Automatic startup and external game asset loading are checked in AIR mobile-device emulation on macOS.
 
 The AIR free-tier HARMAN launch screen is still shown at startup. Removing it requires a paid AIR SDK license.
 
-Version 0.1.3 reaches the login screen on a physical iPhone. On-device testing of 0.1.5, full login, server entry and gameplay remain pending.
+On-device testing of 0.1.6, full login, server entry and gameplay remain pending.
 
 ## Installation
 
@@ -45,7 +45,7 @@ The original package uses `com.personal.aqwprobe`. Retain your existing signing 
 
 The current download is an unsigned IPA for iPhone and iPad. Personal signing is required.
 
-[Checksums](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.5/SHA256SUMS.txt) · [All releases](https://github.com/krittayot611/aqworlds-classic-ios/releases)
+[Checksums](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.6/SHA256SUMS.txt) · [All releases](https://github.com/krittayot611/aqworlds-classic-ios/releases)
 
 ## Issues
 
