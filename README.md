@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="./banner-original.jpg" width="100%" alt="AQWorlds Classic banner">
+<img src="./banner-original.jpg" width="100%" alt="AQWorlds Classic">
 
 # AQWorlds Classic
 
-An unofficial iOS and iPadOS port of AQWorlds Classic.
+An unofficial iOS and iPadOS client for AQWorlds Classic.
 
 **[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.8/AQWorlds-Classic-0.1.8.ipa)** · [Release notes](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v0.1.8)
 
@@ -12,49 +12,51 @@ Version 0.1.8 · Development preview
 
 </div>
 
-## Status
+## About
 
-This project is under development. Version 0.1.8 fills the display during loading, login and gameplay, keeping all controls visible. The image proportions adjust to each device's aspect ratio. The supplied loading background and automatic startup are retained.
+Play the classic AQWorlds experience on iPhone and iPad with touch controls. The client loads official game content and connects to AQWorlds servers using your existing account.
 
-Phone and tablet layouts pass AIR mobile-device emulation checks on macOS, including the official map rasteriser and movement-coordinate conversion. Full-screen rendering, touch input and gameplay still need confirmation on physical iOS devices.
+## Usage
 
-The AIR free-tier HARMAN launch screen is still shown at startup. Removing it requires a paid AIR SDK license.
+Open **AQWorlds Classic** to load the login screen automatically. Sign in, choose a server and play in landscape orientation. Use the on-screen controls to move, interact and use skills.
+
+An internet connection and an AQWorlds account are required.
+
+## Development
+
+This project is in active development. Releases are previews, with screen layout, touch controls and device compatibility being refined.
+
+AI tools are used to assist with coding, debugging and documentation.
+
+To report a problem, open an [issue](https://github.com/krittayot611/aqworlds-classic-ios/issues) with your device model, OS version, app version and a screenshot or description.
 
 ## Installation
 
-Use [Sideloadly](https://sideloadly.io/) on a Windows PC or Mac to sign and install the IPA.
+Install the IPA using [Sideloadly](https://sideloadly.io/) on Windows or macOS.
 
-1. Install Sideloadly. On Windows, follow its instructions for the required Apple components.
-2. Download the IPA using the link above.
+1. Install Sideloadly and complete its setup requirements for your computer.
+2. Download the IPA using **Download** above.
 3. Connect your iPhone or iPad by USB, unlock it and select **Trust** when prompted.
 4. Open Sideloadly, select your device and drag the IPA into the window.
 5. Enter your Apple ID, click **Start** and complete authentication.
-6. If prompted, enable **Settings → Privacy & Security → Developer Mode**, then restart and confirm. For an **Untrusted Developer** message, trust the signing profile under **Settings → General → VPN & Device Management**.
+6. If prompted, trust the signing profile under **Settings → General → VPN & Device Management**. On iOS or iPadOS 16 and later, enable **Settings → Privacy & Security → Developer Mode**, then restart and confirm.
 
-Open **AQWorlds Classic**. The app loads the login screen automatically. An internet connection is required.
+**Updating:** Install the new IPA over the existing app using the same Apple ID, signing team and bundle ID settings. Re-sign the app when its provisioning profile expires.
 
-Free Apple accounts generally require re-signing every seven days. See the [Sideloadly FAQ](https://sideloadly.io/faq) for refresh options and troubleshooting.
+## Compatibility
 
-## Updating
+| Platform | Requirements | Availability |
+| --- | --- | --- |
+| iPhone | 64-bit device, iOS 12.0 or later | Development preview |
+| iPad | 64-bit device, iOS 12.0 or later, or iPadOS | Development preview |
+| Android | — | No build provided |
+| Windows, macOS and Linux | — | No desktop game build provided |
+| 32-bit iOS devices | — | Not supported |
 
-Install the new IPA through Sideloadly using the same Apple ID, signing team and bundle ID as your existing installation. Keep any custom bundle ID setting unchanged to update the app in place.
+Windows and macOS are used to install and update the IPA through Sideloadly. Device compatibility testing is ongoing.
 
-The original package uses `com.personal.aqwprobe`. Retain your existing signing settings when updating.
+## Disclaimer
 
-## Releases
+AQWorlds and all related game content, artwork and trademarks belong to Artix Entertainment. This is an independent, unofficial project and is not affiliated with, endorsed by or supported by Artix Entertainment.
 
-The current download is an unsigned IPA for iPhone and iPad. Personal signing is required.
-
-[Checksums](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.8/SHA256SUMS.txt) · [All releases](https://github.com/krittayot611/aqworlds-classic-ios/releases)
-
-## Issues
-
-Report problems in [Issues](https://github.com/krittayot611/aqworlds-classic-ios/issues). Include your device model, iOS or iPadOS version, app version and a screenshot or description of the error.
-
----
-
-AQWorlds and its game assets belong to Artix Entertainment. This project is not affiliated with or endorsed by Artix Entertainment.
-
-
-
-
+The software is provided as is, without warranty. Use of AQWorlds remains subject to Artix Entertainment's terms and policies.
