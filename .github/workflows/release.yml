@@ -10,6 +10,9 @@ on:
   push:
     branches: [main]
     paths:
+      - native/**
+      - build_margins.py
+      - native_smoke.py
       - Main.as
       - MapRegression.as
       - Probe-app.xml
@@ -58,6 +61,8 @@ jobs:
         run: python3 loader_smoke.py --sdk "$AQW_AIR_SDK" --label phone
       - name: Verify tablet layout, map rasterisation and movement coordinates
         run: python3 loader_smoke.py --sdk "$AQW_AIR_SDK" --label tablet --screen-size 768x1024:768x1024
+      - name: Verify native iOS background and transparent game area
+        run: python3 native_smoke.py --sdk "$AQW_AIR_SDK"
       - name: Upload build and simulator results
         if: always()
         uses: actions/upload-artifact@v7
@@ -77,18 +82,13 @@ jobs:
           p = next(Path('output').glob('*.ipa'))
           Path('output/SHA256SUMS.txt').write_text(hashlib.sha256(p.read_bytes()).hexdigest() + '  ' + p.name + '\n')
           PY
-          gh release create v0.1.8 output/*.ipa output/SHA256SUMS.txt \
-            --title 'AQWorlds Classic 0.1.8' --prerelease --notes-file RELEASE_NOTES.md
+          gh release create v0.1.9 output/*.ipa output/SHA256SUMS.txt \
+            --title 'AQWorlds Classic 0.1.9' --prerelease --notes-file RELEASE_NOTES.md
           python3 - <<'PY'
           import base64, json, subprocess
           data = json.loads(subprocess.check_output(['gh', 'api', 'repos/${{ github.repository }}/contents/README.md']))
-          text = base64.b64decode(data['content']).decode().replace('0.1.7', '0.1.8')
-          text = text.replace('Open **AQWorlds Classic** and tap **Open game**. An internet connection is required.', 'Open **AQWorlds Classic**. The app loads the login screen automatically. An internet connection is required.')
-          start = text.index('## Status\n\n') + len('## Status\n\n')
-          end = text.index('\n## Installation', start)
-          status = "This project is under development. Version 0.1.8 fills the display during loading, login and gameplay, keeping all controls visible. The image proportions adjust to each device's aspect ratio. The supplied loading background and automatic startup are retained.\n\nPhone and tablet layouts pass AIR mobile-device emulation checks on macOS, including the official map rasteriser and movement-coordinate conversion. Full-screen rendering, touch input and gameplay still need confirmation on physical iOS devices.\n\nThe AIR free-tier HARMAN launch screen is still shown at startup. Removing it requires a paid AIR SDK license."
-          text = text[:start] + status + '\n' + text[end:]
-          payload = {'message': 'Update download to 0.1.8', 'sha': data['sha'], 'content': base64.b64encode(text.encode()).decode()}
+          text = base64.b64decode(data['content']).decode().replace('0.1.8', '0.1.9')
+          payload = {'message': 'Update download to 0.1.9', 'sha': data['sha'], 'content': base64.b64encode(text.encode()).decode()}
           subprocess.run(['gh', 'api', '--method', 'PUT', 'repos/${{ github.repository }}/contents/README.md', '--input', '-'], input=json.dumps(payload).encode(), check=True, stdout=subprocess.DEVNULL)
           PY
 
