@@ -1,26 +1,24 @@
 Development preview of AQWorlds Classic for iOS and iPadOS.
 
-**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.3/AQWorlds-Classic-0.1.3.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
+**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.4/AQWorlds-Classic-0.1.4.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
 
 ### Fixes
 
-- Replaced the remote launcher loading path that caused SecurityError #2070 when accessing the app's Stage.
-- Fetches the current game version from Artix and imports the official game into the application's domain.
-- Passes the official launch parameters directly to the game client.
-- Shows which loading step failed if a new error occurs.
+- Centres the game on wide displays while preserving its aspect ratio and touch coordinates.
+- Supplies the official game asset URL so files loaded after login resolve to the game server instead of the local app folder.
+- Checks external asset loading through the game's own loader before publishing a release.
 - Keeps the existing bundle ID, app name and icon for in-place updates.
 
 ### Testing
 
-The release workflow checks compilation, IPA packaging, and loading the official game in AIR's mobile-device emulation on macOS. This checks the loading path and Stage access; it does not verify iOS device compatibility. Login, server connections and gameplay on physical devices still require testing.
+The release workflow checks compilation, IPA packaging, the game viewport and loading the official external asset library in AIR's mobile-device emulation on macOS. Version 0.1.3 reaches the login screen on a physical iPhone. Full login, server entry and gameplay with 0.1.4 still require on-device testing.
 
 ### Installation
 
-The IPA is unsigned. Sign and install it with Sideloadly on Windows or macOS. To update an existing installation, reuse the same Apple ID, signing team and bundle ID.
+Sign and install the IPA with Sideloadly on Windows or macOS. To update an existing installation, reuse the same Apple ID, signing team and bundle ID.
 
 Checksums are included in the release assets.
 
 ---
 
 AQWorlds and its game assets belong to Artix Entertainment. This project is not affiliated with or endorsed by Artix Entertainment.
-

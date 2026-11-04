@@ -4,7 +4,6 @@ package {
     import flash.display.Loader;
     import flash.display.MovieClip;
     import flash.display.Sprite;
-    import flash.display.StageAlign;
     import flash.display.StageScaleMode;
     import flash.events.Event;
     import flash.events.IOErrorEvent;
@@ -41,6 +40,9 @@ package {
         private var gameVersion:Object;
         private var loading:Boolean = false;
         private var loadPhase:String = "startup";
+        private var smokeAssetFile:String;
+        private var assetProbe:Loader;
+        private var gameClient:MovieClip;
 
         public function Main() {
             writeStartup("Main constructor");
@@ -62,7 +64,7 @@ package {
             panel.graphics.endFill();
             addLabel("AQWorlds Classic", 50, 70, 32);
             addLabel("Tap to open the official game launcher.", 50, 125, 22);
-            addLabel("Touch client 0.1.3", 50, 165, 18);
+            addLabel("Touch client 0.1.4", 50, 165, 18);
             addLabel(Capabilities.os + " / AIR " + Capabilities.version, 50, 200, 16);
             message = addLabel("Ready", 50, 265, 20);
             message.height = 155;
@@ -100,8 +102,8 @@ package {
             );
             writeStartup("UI ready");
             try {
-                stage.align = StageAlign.TOP_LEFT;
-                stage.scaleMode = StageScaleMode.SHOW_ALL;
+                centerStage();
+                stage.addEventListener(Event.RESIZE, centerStage);
                 Multitouch.inputMode = MultitouchInputMode.NONE;
                 NativeApplication.nativeApplication.systemIdleMode = SystemIdleMode.KEEP_AWAKE;
                 writeStartup("Input and screen configured");
@@ -113,9 +115,21 @@ package {
         }
 
         private function onInvoke(event:InvokeEvent):void {
+            for each (var argument:String in event.arguments) {
+                if (argument.indexOf("--smoke-assets=") == 0) {
+                    smokeAssetFile = argument.substr(15);
+                    if (!/^[A-Za-z0-9_-]+\.swf$/.test(smokeAssetFile)) smokeAssetFile = null;
+                }
+            }
             if (event.arguments.indexOf("--smoke-game") >= 0 && message != null) {
                 openGame(null);
             }
+        }
+
+        private function centerStage(event:Event = null):void {
+            // Centre SHOW_ALL's letterboxing and preserve the game's touch coordinates.
+            if (stage.align != "") stage.align = "";
+            if (stage.scaleMode != StageScaleMode.SHOW_ALL) stage.scaleMode = StageScaleMode.SHOW_ALL;
         }
 
         private function writeStartup(text:String):void {
@@ -221,6 +235,9 @@ package {
                     game["params"] = parameters;
                 }
                 parameters.sURL = GAME_BASE;
+                // loadBytes has an app:/ origin. Override the asset base before
+                // ADDED_TO_STAGE so the game fetches its external files over HTTPS.
+                parameters.sFilePath = GAME_BASE + "gamefiles/";
                 parameters.sTitle = gameVersion.sTitle;
                 parameters.vars = gameVersion;
                 parameters.isWeb = false;
@@ -234,9 +251,14 @@ package {
                 game.x = 0;
                 game.y = 0;
                 stage.addChildAt(game, 0);
+                gameClient = game;
+                centerStage();
                 panel.visible = false;
                 loadPhase = "game running";
                 writeStartup("Game client attached; login and gameplay remain unverified");
+                writeStartup("Viewport centred: align=" + stage.align + "; scale=" + stage.scaleMode);
+                writeStartup("Official asset base: " + game["sFilePath"]);
+                if (smokeAssetFile != null) checkExternalAssets();
             } catch (error:Error) {
                 showFailure(error.name + " " + error.errorID + "\n" + error.message);
             }
@@ -247,6 +269,23 @@ package {
                 message.text = "Downloading game " +
                     Math.round(100 * event.bytesLoaded / event.bytesTotal) + "%";
             }
+        }
+
+        private function checkExternalAssets():void {
+            var gameClass:Class = ApplicationDomain.currentDomain.getDefinition("Game") as Class;
+            var base:String = String(gameClass["serverFilePath"]);
+            if (base != GAME_BASE + "gamefiles/") throw new Error("The game did not accept the official asset base.");
+            var assetLoaderClass:Class = ApplicationDomain.currentDomain.getDefinition("types.AirLoader") as Class;
+            assetProbe = new assetLoaderClass() as Loader;
+            assetProbe.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, onUnhandledError);
+            assetProbe.contentLoaderInfo.addEventListener(Event.COMPLETE, function(event:Event):void {
+                writeStartup("External asset check passed: " + smokeAssetFile);
+            });
+            assetProbe.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR, onLoadError);
+            assetProbe.contentLoaderInfo.addEventListener(SecurityErrorEvent.SECURITY_ERROR, onLoadError);
+            writeStartup("Checking external assets through the official AirLoader");
+            assetProbe.load(new URLRequest(base + "interface/Assets/" + smokeAssetFile),
+                gameClient["assetsContext"] as LoaderContext);
         }
 
         private function onLoadError(event:Event):void {

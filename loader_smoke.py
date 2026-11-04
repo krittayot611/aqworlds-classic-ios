@@ -19,7 +19,9 @@ def main():
     startup = Path.home() / 'Documents/aqw-startup.log'
     startup.unlink(missing_ok=True)
     command = [str(args.sdk.resolve() / 'bin/adl'), '-profile', 'mobileDevice',
-               str(root / 'build/Probe-app.xml'), str(root / 'build'), '--', '--smoke-game']
+               '-screensize', '2048x944:2048x944',
+               str(root / 'build/Probe-app.xml'), str(root / 'build'), '--', '--smoke-game',
+               '--smoke-assets=Assets_20260702.swf']
     print('Checking official-game import and Stage access in AIR.', flush=True)
     with console_path.open('wb') as console:
         process = subprocess.Popen(command, stdout=console, stderr=subprocess.STDOUT)
@@ -32,11 +34,13 @@ def main():
                     text += startup.read_text(errors='replace')
                 if 'Load failed (' in text or 'SecurityError 2070' in text:
                     raise RuntimeError('The game loading check failed. See loader-smoke.log.')
-                if 'Game client attached' in text:
+                if ('Game client attached' in text and 'External asset check passed:' in text
+                        and 'Viewport centred: align=; scale=showAll' in text):
                     if attached_at is None:
                         attached_at = time.monotonic()
                     if time.monotonic() - attached_at >= 8:
                         result = {'game_imported': True, 'stage_access_passed': True,
+                                  'viewport_centred': True, 'external_assets_loaded': True,
                                   'runtime': 'macOS AIR mobileDevice emulation',
                                   'physical_ios_gameplay_verified': False}
                         (output / 'loader-smoke.json').write_text(json.dumps(result, indent=2) + '\n')
