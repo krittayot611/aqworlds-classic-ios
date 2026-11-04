@@ -1,24 +1,23 @@
 Development preview of AQWorlds Classic for iOS and iPadOS.
 
-**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.5/AQWorlds-Classic-0.1.5.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
+**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.6/AQWorlds-Classic-0.1.6.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
 
 ### Changes
 
-- Opens the game automatically when the app starts. There is no Open game button.
-- Shows a simple loading screen while checking the game version and downloading the client.
-- Retains the centred viewport, official asset base URL, existing bundle ID and app icon.
-
-### Launch screen
-
-The HARMAN launch screen is still included by the free AIR SDK. Removing it requires a paid AIR SDK license; see the [AIR SDK FAQ](https://airsdk.harman.com/faq).
+- Uses the supplied charcoal texture behind the loading screen.
+- Extends the texture into the space around the centred game.
+- Keeps the background behind the game and prevents it from intercepting touches.
+- Retains automatic startup, the original game proportions, bundle ID and app icon.
 
 ### Testing
 
-The release workflow checks automatic startup without clicking a button, game loading, viewport centring and external asset loading in AIR mobile-device emulation on macOS. This does not verify login, server entry or gameplay on a physical iPhone or iPad.
+Automatic startup, external game asset loading and background placement are checked in AIR mobile-device emulation on macOS. Loading-screen and game screenshots are included in the build results. Physical-device login, server entry and gameplay still require testing.
 
 ### Installation
 
 Sign and install the IPA with Sideloadly on Windows or macOS. To update an existing installation, reuse the same Apple ID, signing team and bundle ID.
+
+The HARMAN launch screen remains part of the AIR free-tier build.
 
 Checksums are included in the release assets.
 

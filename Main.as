@@ -1,6 +1,9 @@
 package {
     import flash.desktop.NativeApplication;
     import flash.desktop.SystemIdleMode;
+    import flash.display.Bitmap;
+    import flash.display.BitmapData;
+    import flash.display.PNGEncoderOptions;
     import flash.display.Loader;
     import flash.display.MovieClip;
     import flash.display.Sprite;
@@ -14,6 +17,7 @@ package {
     import flash.filesystem.File;
     import flash.filesystem.FileMode;
     import flash.filesystem.FileStream;
+    import flash.geom.Matrix;
     import flash.net.URLRequest;
     import flash.net.URLLoader;
     import flash.net.URLLoaderDataFormat;
@@ -27,6 +31,11 @@ package {
 
     [SWF(width="960", height="550", frameRate="30", backgroundColor="#101820")]
     public class Main extends Sprite {
+        [Embed(source="Background.jpg")]
+        private static const BackgroundImage:Class;
+        private var backdrop:Sprite = new Sprite();
+        private var backdropTexture:BitmapData;
+
         private static const GAME_BASE:String = "https://game.aq.com/game/";
 
         private var gameLoader:Loader = new Loader();
@@ -55,10 +64,8 @@ package {
             removeEventListener(Event.ADDED_TO_STAGE, initialize);
             writeStartup("Stage attached");
 
+            createBackdrop();
             addChild(panel);
-            panel.graphics.beginFill(0x101820);
-            panel.graphics.drawRect(0, 0, 960, 550);
-            panel.graphics.endFill();
             var title:TextField = addLabel("AQWorlds Classic", 50, 205, 32);
             title.setTextFormat(new TextFormat("_sans", 32, 0xFFFFFF, false, null, null, null, null, "center"));
             message = addLabel("Loading...", 50, 265, 20);
@@ -78,7 +85,7 @@ package {
             gameLoader.contentLoaderInfo.addEventListener(
                 SecurityErrorEvent.SECURITY_ERROR, onLoadError
             );
-            writeStartup("Touch client 0.1.5: loading screen ready");
+            writeStartup("Touch client 0.1.6: loading screen ready");
             try {
                 centerStage();
                 stage.addEventListener(Event.RESIZE, centerStage);
@@ -96,6 +103,7 @@ package {
 
         private function startAutomatically(event:Event):void {
             removeEventListener(Event.ENTER_FRAME, startAutomatically);
+            if (smokeAssetFile != null) captureLoadingPreview();
             writeStartup("Automatic game launch");
             openGame();
         }
@@ -107,6 +115,33 @@ package {
                     if (!/^[A-Za-z0-9_-]+\.swf$/.test(smokeAssetFile)) smokeAssetFile = null;
                 }
             }
+        }
+
+        private function createBackdrop():void {
+            backdropTexture = (new BackgroundImage() as Bitmap).bitmapData;
+            backdrop.mouseEnabled = false;
+            backdrop.mouseChildren = false;
+            var scale:Number = Math.max(960 / backdropTexture.width, 550 / backdropTexture.height);
+            var fill:Matrix = new Matrix(scale, 0, 0, scale,
+                (960 - backdropTexture.width * scale) / 2,
+                (550 - backdropTexture.height * scale) / 2);
+            // Paint beyond the logical canvas so the texture also fills SHOW_ALL's margins.
+            backdrop.graphics.beginBitmapFill(backdropTexture, fill, true, true);
+            backdrop.graphics.drawRect(-960, -550, 2880, 1650);
+            backdrop.graphics.endFill();
+            stage.addChildAt(backdrop, 0);
+            writeStartup("Background ready: original texture; pointer input disabled");
+        }
+
+        private function captureLoadingPreview():void {
+            var snapshot:BitmapData = new BitmapData(960, 550, false, 0x101820);
+            snapshot.draw(stage);
+            var stream:FileStream = new FileStream();
+            stream.open(File.documentsDirectory.resolvePath("aqw-loading.png"), FileMode.WRITE);
+            stream.writeBytes(snapshot.encode(snapshot.rect, new PNGEncoderOptions()));
+            stream.close();
+            snapshot.dispose();
+            writeStartup("Loading background preview saved");
         }
 
         private function centerStage(event:Event = null):void {
@@ -232,7 +267,11 @@ package {
                 game["titleDomain"] = ApplicationDomain.currentDomain;
                 game.x = 0;
                 game.y = 0;
-                stage.addChildAt(game, 0);
+                stage.addChildAt(game, 1);
+                if (stage.getChildIndex(backdrop) >= stage.getChildIndex(game)) {
+                    throw new Error("The background must remain behind the game.");
+                }
+                writeStartup("Background behind game; pointer input disabled");
                 gameClient = game;
                 centerStage();
                 panel.visible = false;

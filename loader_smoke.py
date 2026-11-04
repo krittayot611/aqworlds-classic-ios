@@ -18,6 +18,8 @@ def main():
     console_path = output / 'loader-smoke.log'
     startup = Path.home() / 'Documents/aqw-startup.log'
     startup.unlink(missing_ok=True)
+    loading_preview = Path.home() / 'Documents/aqw-loading.png'
+    loading_preview.unlink(missing_ok=True)
     command = [str(args.sdk.resolve() / 'bin/adl'), '-profile', 'mobileDevice',
                # ADL expects portrait dimensions, then applies the descriptor's landscape orientation.
                '-screensize', '472x1024:472x1024',
@@ -37,14 +39,18 @@ def main():
                     raise RuntimeError('The game loading check failed. See loader-smoke.log.')
                 if ('Automatic game launch' in text and 'Game client attached' in text
                         and 'External asset check passed:' in text
-                        and 'Viewport centred: align=; scale=showAll' in text):
+                        and 'Viewport centred: align=; scale=showAll' in text
+                        and 'Background behind game; pointer input disabled' in text
+                        and loading_preview.exists()):
                     if attached_at is None:
                         attached_at = time.monotonic()
                     if time.monotonic() - attached_at >= 8:
                         result = {'automatic_launch': True, 'game_imported': True, 'stage_access_passed': True,
                                   'viewport_centred': True, 'external_assets_loaded': True,
+                                  'background_behind_game': True, 'loading_background_captured': True,
                                   'runtime': 'macOS AIR mobileDevice emulation',
                                   'physical_ios_gameplay_verified': False}
+                        (output / 'loading-background.png').write_bytes(loading_preview.read_bytes())
                         (output / 'loader-smoke.json').write_text(json.dumps(result, indent=2) + '\n')
                         subprocess.run(['screencapture', '-x', str(output / 'loader-smoke.png')], check=False)
                         print(json.dumps(result), flush=True)
