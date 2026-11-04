@@ -10,6 +10,7 @@ on:
   push:
     branches: [main]
     paths:
+      - native-background.patch
       - native/**
       - build_margins.py
       - native_smoke.py
@@ -41,6 +42,13 @@ jobs:
       AQW_AIR_SDK: ${{ github.workspace }}/.air-sdk
     steps:
       - uses: actions/checkout@v7
+      - name: Apply staged source update
+        shell: bash
+        run: |
+          if [ -f native-background.patch ]; then
+            git apply --check native-background.patch
+            git apply native-background.patch
+          fi
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -63,6 +71,15 @@ jobs:
         run: python3 loader_smoke.py --sdk "$AQW_AIR_SDK" --label tablet --screen-size 768x1024:768x1024
       - name: Verify native iOS background and transparent game area
         run: python3 native_smoke.py --sdk "$AQW_AIR_SDK"
+      - name: Save verified source update
+        shell: bash
+        run: |
+          if [ -f native-background.patch ]; then
+            git rm native-background.patch
+            git add Main.as MapRegression.as Probe-app.xml build.py cloud_build.py loader_smoke.py build_margins.py native_smoke.py RELEASE_NOTES.md native/NativeMargins.as native/MarginBackdrop.m
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Preserve game proportions and add native iOS backgrounds'
+            git push origin HEAD:main
+          fi
       - name: Upload build and simulator results
         if: always()
         uses: actions/upload-artifact@v7
