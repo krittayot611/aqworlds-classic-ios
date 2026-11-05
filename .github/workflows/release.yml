@@ -39,6 +39,7 @@ jobs:
     runs-on: macos-15-intel
     timeout-minutes: 20
     env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
       AQW_AIR_SDK: ${{ github.workspace }}/.air-sdk
     steps:
       - uses: actions/checkout@v7
@@ -81,12 +82,55 @@ jobs:
                       raise RuntimeError('Unexpected packaging command in ' + filename)
                   text = text.replace(before, after, 1)
               p.write_text(text)
+          native_startup_fixes = [("    if not choices: raise RuntimeError('No iPhone simulator is available.')",
+            "    requested = os.environ.get('AQW_SIMULATOR_UDID')\n"
+            "    if requested: choices = [d for d in choices if d['udid'] == requested]\n"
+            "    if not choices: raise RuntimeError('The requested iPhone simulator is not available.')"),
+           ("    run('xcrun', 'simctl', 'bootstatus', udid, '-b', timeout=150)",
+            "    boot_log = output / 'simulator-boot.log'\n"
+            "    print('Waiting for simulator data migration and startup (up to 420 seconds).', flush=True)\n"
+            "    with boot_log.open('w') as log:\n"
+            '        try:\n'
+            "            run('xcrun', 'simctl', 'bootstatus', udid, '-b', timeout=420,\n"
+            '                stdout=log, stderr=subprocess.STDOUT)\n'
+            '        except (subprocess.TimeoutExpired, subprocess.CalledProcessError):\n'
+            '            print(boot_log.read_text()[-6000:], flush=True)\n'
+            '            raise\n'
+            "    print('iOS Simulator is ready for the native-background test.', flush=True)")]
+          p = Path('native_smoke.py')
+          text = p.read_text()
+          for before, after in native_startup_fixes:
+              if text.count(before) != 1:
+                  raise RuntimeError('Unexpected native simulator startup code')
+              text = text.replace(before, after, 1)
+          p.write_text(text)
           PYFIX
           fi
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
+      - name: Start iOS Simulator while the game builds
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          sdk = subprocess.check_output(['xcrun', '--sdk', 'iphonesimulator', '--show-sdk-version'], text=True).strip()
+          groups = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json'], text=True))['devices']
+          prefix = 'com.apple.CoreSimulator.SimRuntime.iOS-' + sdk.split('.')[0] + '-'
+          preferred = 'com.apple.CoreSimulator.SimRuntime.iOS-' + sdk.replace('.', '-')
+          choices = [(runtime, device) for runtime, devices in groups.items() if runtime.startswith(prefix)
+                     for device in devices if device.get('isAvailable') and device['name'].startswith('iPhone')]
+          if not choices:
+              raise RuntimeError('No available iPhone simulator matches the selected iOS SDK: ' + sdk)
+          choices.sort(key=lambda pair: (pair[0] != preferred, pair[1]['state'] != 'Booted', pair[1]['name']))
+          runtime, device = choices[0]
+          if device['state'] != 'Booted':
+              subprocess.run(['xcrun', 'simctl', 'boot', device['udid']], check=True, timeout=60)
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write('AQW_SIMULATOR_UDID=' + device['udid'] + '\n')
+          print('Simulator startup requested: ' + device['name'] + ' / ' + runtime, flush=True)
+          PY
       - name: Download AIR SDK
         shell: bash
         run: |
