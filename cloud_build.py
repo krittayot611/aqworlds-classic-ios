@@ -91,11 +91,13 @@ def main():
         subprocess.run([
             "java", "-Xmx2048m", "-jar", str(sdk / "lib/adt.jar"),
             "-cfg", str(root / "adt.cfg"), "-package",
-            "-target", "ipa-test-interpreter", "-storetype", "pkcs12",
+            "-target", "ipa-test-interpreter",
+            "-storetype", "pkcs12",
             "-keystore", str(p12), "-storepass", password,
             "-provisioning-profile", str(profile),
             str(temporary_ipa), str(root / "build/Probe-app.xml"),
-            "-C", str(root / "build"), "Probe.swf", "icons",
+            "-extdir", str(root / "build/extensions"),
+            "-C", str(root / "build"), "Probe.swf", "icons", "Background.jpg",
         ], check=True)
         unpacked = directory / "unpacked"
         subprocess.run(["unzip", "-q", str(temporary_ipa), "-d", str(unpacked)], check=True)

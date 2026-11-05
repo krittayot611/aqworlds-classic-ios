@@ -35,7 +35,9 @@ def main():
             if path is None or not path.expanduser().is_file():
                 parser.error("Provide " + name + " with a local signing file.")
 
+    subprocess.run([sys.executable, str(root / "build_margins.py"), "--sdk", str(sdk)], check=True)
     build.mkdir(exist_ok=True)
+    shutil.copy2(root / "Background.jpg", build / "Background.jpg")
     icon_dir = build / "icons"
     icon_dir.mkdir(exist_ok=True)
     for size in (29, 40, 50, 57, 58, 60, 72, 76, 80, 87, 100, 114, 120, 144, 152, 167, 180, 1024):
@@ -54,6 +56,7 @@ def main():
         java, "-Dflexlib=" + str(sdk / "frameworks"),
         "-jar", str(sdk / "lib/mxmlc-cli.jar"), "+configname=air",
         "-source-path=" + str(root),
+        "-external-library-path+=" + str(build / "Margins.swc"),
         "-debug=false",
         "-output=" + str(build / "Probe.swf"), str(root / "Main.as"),
     ], check=True)
@@ -64,11 +67,15 @@ def main():
     descriptor.find("{" + namespace + "}id").text = args.app_id
     version = descriptor.find("{" + namespace + "}versionNumber").text
     descriptor.write(build / "Probe-app.xml", encoding="utf-8", xml_declaration=True)
+    validation = ET.parse(build / "Probe-app.xml")
+    extensions = validation.find("{" + namespace + "}extensions")
+    if extensions is not None: validation.getroot().remove(extensions)
+    validation.write(build / "Validation-app.xml", encoding="utf-8", xml_declaration=True)
     # AIR's prepare command validates the application descriptor and file list.
     subprocess.run([
         java, "-jar", str(sdk / "lib/adt.jar"), "-cfg", str(root / "adt.cfg"), "-prepare",
-        str(build / "Probe.airi"), str(build / "Probe-app.xml"),
-        "-C", str(build), "Probe.swf", "icons",
+        str(build / "Probe.airi"), str(build / "Validation-app.xml"),
+        "-C", str(build), "Probe.swf", "icons", "Background.jpg",
     ], check=True)
     print("Compiled SWF and validated AIR descriptor.")
 
@@ -80,7 +87,7 @@ def main():
             "-keystore", str(args.p12.expanduser().resolve()),
             "-provisioning-profile", str(args.profile.expanduser().resolve()),
             str(build / ("AQWorlds-Classic-" + version + ".ipa")),
-            str(build / "Probe-app.xml"), "-C", str(build), "Probe.swf", "icons",
+            str(build / "Probe-app.xml"), "-extdir", str(build / "extensions"), "-C", str(build), "Probe.swf", "icons", "Background.jpg",
         ], check=True)
         print("IPA packaged. Installation, login and gameplay still require an iPhone test.")
 

@@ -66,6 +66,17 @@ package {
             removeEventListener(Event.ADDED_TO_STAGE, initialize);
             writeStartup("Stage attached");
 
+            // The simulator test package carries this resource because iOS
+            // does not deliver the simulator launch arguments through INVOKE.
+            var smokeConfig:File = File.applicationDirectory.resolvePath("aqw-simulator-smoke.txt");
+            if (smokeConfig.exists) {
+                var smokeStream:FileStream = new FileStream();
+                smokeStream.open(smokeConfig, FileMode.READ);
+                setSmokeAsset(smokeStream.readUTFBytes(smokeStream.bytesAvailable));
+                smokeStream.close();
+                writeStartup("Simulator smoke configuration loaded: " + smokeAssetFile);
+            }
+
             createBackdrop();
             addChild(panel);
             var title:TextField = addLabel("AQWorlds Classic", 50, 205, 32);
@@ -87,10 +98,11 @@ package {
             gameLoader.contentLoaderInfo.addEventListener(
                 SecurityErrorEvent.SECURITY_ERROR, onLoadError
             );
-            writeStartup("Touch client 0.1.8: loading screen ready");
+            writeStartup("Touch client 0.1.9: loading screen ready");
             try {
                 centerStage();
                 stage.addEventListener(Event.RESIZE, centerStage);
+                NativeApplication.nativeApplication.addEventListener(Event.ACTIVATE, centerStage);
                 Multitouch.inputMode = MultitouchInputMode.NONE;
                 NativeApplication.nativeApplication.systemIdleMode = SystemIdleMode.KEEP_AWAKE;
                 writeStartup("Input and screen configured");
@@ -113,13 +125,16 @@ package {
         private function onInvoke(event:InvokeEvent):void {
             for each (var argument:String in event.arguments) {
                 if (argument.indexOf("--smoke-assets=") == 0) {
-                    smokeAssetFile = argument.substr(15);
-                    if (!/^[A-Za-z0-9_-]+\.swf$/.test(smokeAssetFile)) smokeAssetFile = null;
+                    setSmokeAsset(argument.substr(15));
                 }
             }
             // INVOKE can arrive after the first frame. Capture whichever loading
             // state is currently visible without delaying normal automatic startup.
             if (smokeAssetFile != null && message != null && panel.visible) captureLoadingPreview();
+        }
+
+        private function setSmokeAsset(value:String):void {
+            smokeAssetFile = /^[A-Za-z0-9_-]+\.swf$/.test(value) ? value : null;
         }
 
         private function createBackdrop():void {
@@ -144,10 +159,10 @@ package {
         }
 
         private function centerStage(event:Event = null):void {
-            // Scale the Stage itself to the display, keeping the legacy game's
-            // logical 960 x 550 coordinates unchanged. No clipping or root transform.
+            // Keep loading full-screen. Once imported, preserve the game's aspect
+            // ratio and original logical coordinates; native views fill the gutters.
             stage.align = "";
-            stage.scaleMode = StageScaleMode.EXACT_FIT;
+            stage.scaleMode = gameClient == null ? StageScaleMode.EXACT_FIT : StageScaleMode.SHOW_ALL;
             scaleX = scaleY = 1;
             x = y = 0;
             if (gameClient != null) {
@@ -171,6 +186,13 @@ package {
             backdrop.graphics.endFill();
             // Game is Stage child zero; never leave an opaque overlay over it.
             backdrop.visible = gameClient == null;
+            if (gameClient != null) {
+                try {
+                    writeStartup("Native margins: " + NativeMargins.show(smokeAssetFile != null));
+                } catch (error:Error) {
+                    writeStartup("Native margins unavailable: " + error.message);
+                }
+            }
         }
 
         private function writeStartup(text:String):void {

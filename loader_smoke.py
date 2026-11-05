@@ -25,6 +25,7 @@ def main():
     command = [str(args.sdk.resolve() / 'bin/adl'), '-profile', 'mobileDevice',
                # ADL expects portrait dimensions, then applies the descriptor's landscape orientation.
                '-screensize', args.screen_size,
+               '-extdir', str(root / 'build/unpacked-extensions'),
                str(root / 'build/Probe-app.xml'), str(root / 'build'), '--',
                '--smoke-assets=Assets_20260702.swf']
     print('Checking automatic startup and official external assets in AIR.', flush=True)
@@ -41,7 +42,7 @@ def main():
                     raise RuntimeError('The game loading check failed. See loader-smoke.log.')
                 if ('Automatic game launch' in text and 'Game client attached' in text
                         and 'External asset check passed:' in text
-                        and 'Viewport centred: align=; scale=exactFit' in text
+                        and 'Viewport centred: align=; scale=showAll' in text
                         and 'Game is Stage child zero; background input disabled' in text
                         and 'Map regression passed:' in text
                         and loading_preview.exists()):
@@ -49,7 +50,7 @@ def main():
                         attached_at = time.monotonic()
                     if time.monotonic() - attached_at >= 8:
                         result = {'automatic_launch': True, 'game_imported': True, 'stage_access_passed': True,
-                                  'viewport_centred': True, 'full_screen_scaling': True,
+                                  'viewport_centred': True, 'game_aspect_ratio_preserved': True,
                                   'screen_size': args.screen_size, 'external_assets_loaded': True,
                                   'legacy_game_coordinates': True, 'map_rasterization_checked': True,
                                   'movement_coordinates_checked': True, 'loading_background_captured': True,

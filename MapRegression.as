@@ -9,7 +9,7 @@ package {
     // Run only by the release smoke check; never creates a game session.
     public final class MapRegression {
         public static function run(game:MovieClip):Object {
-            if (game.stage.scaleMode != StageScaleMode.EXACT_FIT ||
+            if (game.stage.scaleMode != StageScaleMode.SHOW_ALL ||
                 game.stage.stageWidth != 960 || game.stage.stageHeight != 550 ||
                 game.stage.getChildAt(0) != game || game.x != 0 || game.y != 0 ||
                 game.scaleX != 1 || game.scaleY != 1 || game.scrollRect != null) {

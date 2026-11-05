@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <application xmlns="http://ns.adobe.com/air/application/51.3">
     <id>com.personal.aqwprobe</id>
-    <versionNumber>0.1.8</versionNumber>
+    <versionNumber>0.1.9</versionNumber>
     <filename>AQWorldsClassic</filename>
     <name>AQWorlds Classic</name>
     <description>Personal touch client for the official AQWorlds Classic launcher.</description>
@@ -39,7 +39,7 @@
     </icon>
     <iPhone>
         <InfoAdditions><![CDATA[
-            <key>UIDeviceFamily</key>
+            <key>MinimumOSVersion</key><string>12.0</string><key>UIDeviceFamily</key>
             <array><string>1</string><string>2</string></array>
             <key>NSAppTransportSecurity</key>
             <dict>
@@ -60,5 +60,6 @@
         ]]></InfoAdditions>
         <requestedDisplayResolution>high</requestedDisplayResolution>
     </iPhone>
+    <extensions><extensionID>com.aqw.classic.margins</extensionID></extensions>
     <supportedLanguages>en</supportedLanguages>
 </application>

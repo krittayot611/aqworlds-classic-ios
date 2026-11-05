@@ -1,4 +1,4 @@
-<extension xmlns="http://ns.adobe.com/air/extension/3.1">
+<extension xmlns="http://ns.adobe.com/air/extension/33.1">
     <id>com.aqw.classic.margins</id>
     <versionNumber>1.0.0</versionNumber>
     <platforms>

@@ -1,0 +1,1 @@
+<platform xmlns="http://ns.adobe.com/air/extension/33.1"><sdkVersion>12.0</sdkVersion><linkerOptions><option>-ios_version_min 12.0</option><option>-framework UIKit</option><option>-framework Foundation</option><option>-framework CoreGraphics</option></linkerOptions></platform>
