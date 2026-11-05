@@ -104,13 +104,55 @@ jobs:
                   raise RuntimeError('Unexpected native simulator startup code')
               text = text.replace(before, after, 1)
           p.write_text(text)
+          universal_simulator_fixes = [("        command += ['-platform', platform, '-platformoptions', str(root / 'native/platform-ios.xml'), "
+            "'-C', str(directory), 'library.swf', 'libAQWMargins.a']",
+            "        if platform == 'iPhone-x86':\n"
+            '            # Current AIR simulator runtimes contain both Intel and Apple Silicon slices.\n'
+            "            run('xcrun', 'clang', '-target', 'arm64-apple-ios14.0-simulator', '-isysroot', system_sdk,\n"
+            "                '-fobjc-arc', '-fmodules', '-I', sdk / 'include', '-c', root / "
+            "'native/MarginBackdrop.m',\n"
+            "                '-o', directory / 'Margins-arm64.o')\n"
+            "            run('xcrun', 'libtool', '-static', '-o', directory / 'libAQWMargins-arm64.a', directory / "
+            "'Margins-arm64.o')\n"
+            "            run('xcrun', 'lipo', '-create', directory / 'libAQWMargins.a', directory / "
+            "'libAQWMargins-arm64.a',\n"
+            "                '-output', directory / 'libAQWMargins-universal.a')\n"
+            "            (directory / 'libAQWMargins-universal.a').replace(directory / 'libAQWMargins.a')\n"
+            "            run('xcrun', 'lipo', '-verify_arch', 'x86_64', 'arm64', directory / 'libAQWMargins.a')\n"
+            "        command += ['-platform', platform, '-platformoptions', str(root / 'native/platform-ios.xml'), "
+            "'-C', str(directory), 'library.swf', 'libAQWMargins.a']"),
+           ("print('Native gutter background compiled for arm64 iOS and x86_64 iOS Simulator.')",
+            "print('Native gutter background compiled for arm64 iOS and universal x86_64/arm64 iOS Simulator.')")]
+          p = Path('build_margins.py')
+          text = p.read_text()
+          for before, after in universal_simulator_fixes:
+              if text.count(before) != 1:
+                  raise RuntimeError('Unexpected native extension build code')
+              text = text.replace(before, after, 1)
+          p.write_text(text)
           PYFIX
           fi
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
-      - name: Start iOS Simulator while the game builds
+      - name: Download AIR SDK
+        shell: bash
+        run: |
+          curl --fail --location --retry 1 --connect-timeout 20 --max-time 300 \
+            'https://airsdk.wxlift.com/api/versions/51.3.4.2/sdks/AIRSDK_MacOS.zip?license=accepted' \
+            --output "$RUNNER_TEMP/aqw-air-sdk.zip"
+          mkdir -p "$AQW_AIR_SDK"
+          unzip -q "$RUNNER_TEMP/aqw-air-sdk.zip" -d "$AQW_AIR_SDK"
+          test -f "$AQW_AIR_SDK/lib/adt.jar"
+          cp adt.cfg "$AQW_AIR_SDK/lib/adt.cfg"
+      - name: Build IPA
+        run: python3 cloud_build.py --sdk "$AQW_AIR_SDK"
+      - name: Verify phone layout, map rasterisation and movement coordinates
+        run: python3 loader_smoke.py --sdk "$AQW_AIR_SDK" --label phone
+      - name: Verify tablet layout, map rasterisation and movement coordinates
+        run: python3 loader_smoke.py --sdk "$AQW_AIR_SDK" --label tablet --screen-size 768x1024:768x1024
+      - name: Start iOS Simulator before native runtime checks
         shell: bash
         run: |
           python3 - <<'PY'
@@ -131,22 +173,6 @@ jobs:
               env.write('AQW_SIMULATOR_UDID=' + device['udid'] + '\n')
           print('Simulator startup requested: ' + device['name'] + ' / ' + runtime, flush=True)
           PY
-      - name: Download AIR SDK
-        shell: bash
-        run: |
-          curl --fail --location --retry 1 --connect-timeout 20 --max-time 300 \
-            'https://airsdk.wxlift.com/api/versions/51.3.4.2/sdks/AIRSDK_MacOS.zip?license=accepted' \
-            --output "$RUNNER_TEMP/aqw-air-sdk.zip"
-          mkdir -p "$AQW_AIR_SDK"
-          unzip -q "$RUNNER_TEMP/aqw-air-sdk.zip" -d "$AQW_AIR_SDK"
-          test -f "$AQW_AIR_SDK/lib/adt.jar"
-          cp adt.cfg "$AQW_AIR_SDK/lib/adt.cfg"
-      - name: Build IPA
-        run: python3 cloud_build.py --sdk "$AQW_AIR_SDK"
-      - name: Verify phone layout, map rasterisation and movement coordinates
-        run: python3 loader_smoke.py --sdk "$AQW_AIR_SDK" --label phone
-      - name: Verify tablet layout, map rasterisation and movement coordinates
-        run: python3 loader_smoke.py --sdk "$AQW_AIR_SDK" --label tablet --screen-size 768x1024:768x1024
       - name: Verify native iOS background and transparent game area
         run: python3 native_smoke.py --sdk "$AQW_AIR_SDK"
       - name: Save verified source update
