@@ -6,11 +6,16 @@
 
 An unofficial iOS and iPadOS client for AQWorlds Classic.
 
-**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.9/AQWorlds-Classic-0.1.9.ipa)** · [Release notes](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v0.1.9)
-
-Version 0.1.9 · Development preview
-
 </div>
+
+## Downloads
+
+| Channel | Version | IPA |
+| --- | --- | --- |
+| Stable | 0.1.9 | [Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.9/AQWorlds-Classic-0.1.9.ipa) |
+| Unstable | — | First build pending |
+
+Stable is the full release for iPhone and iPad. New updates are published as Unstable pre-releases with `-unstable.ipa` filenames. Stable changes are published after approval, including fixes designated for Stable.
 
 ## About
 
@@ -22,7 +27,7 @@ The client loads official game content and connects to the existing AQWorlds ser
 
 ## Development status
 
-The project is in active development. Current work focuses on display layout, touch input, stability and compatibility across iPhone and iPad. Releases are development previews, with testing ongoing across devices and OS versions.
+The project is in active development. Current work focuses on display layout, touch input, stability and compatibility across iPhone and iPad. Testing continues across devices and OS versions.
 
 Report problems through [GitHub Issues](https://github.com/krittayot611/aqworlds-classic-ios/issues). Include your device model, OS version, app version and the steps needed to reproduce the issue. Screenshots are helpful for display problems.
 
@@ -31,7 +36,7 @@ Report problems through [GitHub Issues](https://github.com/krittayot611/aqworlds
 Install the IPA with [Sideloadly](https://sideloadly.io/) on Windows or macOS.
 
 1. Install Sideloadly and complete the setup requirements for your computer.
-2. Get the IPA from **Download** above.
+2. Download the IPA for your chosen channel.
 3. Connect your iPhone or iPad by USB, unlock it and select **Trust** when prompted.
 4. Open Sideloadly, select your device and drag the IPA into the window.
 5. Enter your Apple ID, select **Start** and complete authentication.
@@ -43,8 +48,8 @@ Install the IPA with [Sideloadly](https://sideloadly.io/) on Windows or macOS.
 
 | Platform | Requirements | Status |
 | --- | --- | --- |
-| iPhone | 64-bit device, iOS 12.0 or later | Development preview |
-| iPad | 64-bit device, iOS 12.0 or later, or iPadOS | Development preview |
+| iPhone | 64-bit device, iOS 12.0 or later | iOS build available |
+| iPad | 64-bit device, iOS 12.0 or later, or iPadOS | iOS build available |
 | 32-bit iOS devices | — | Not supported |
 | Android | — | No build provided by this project |
 | Windows, macOS and Linux | — | No desktop game build provided |
