@@ -6,9 +6,9 @@
 
 An unofficial iOS and iPadOS client for AQWorlds Classic.
 
-**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.8/AQWorlds-Classic-0.1.8.ipa)** · [Release notes](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v0.1.8)
+**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.9/AQWorlds-Classic-0.1.9.ipa)** · [Release notes](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v0.1.9)
 
-Version 0.1.8 · Development preview
+Version 0.1.9 · Development preview
 
 </div>
 
