@@ -4,9 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish a development release
+        description: Publish the tested IPA from main
         type: boolean
         default: false
+      channel:
+        description: Release channel (select stable only for an approved Stable update)
+        type: choice
+        default: unstable
+        options:
+          - unstable
+          - stable
   push:
     branches: [main]
     paths:
@@ -32,7 +39,7 @@ permissions:
 
 concurrency:
   group: ios-release
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -192,6 +199,33 @@ jobs:
           cp adt.cfg "$AQW_AIR_SDK/lib/adt.cfg"
       - name: Build IPA
         run: python3 cloud_build.py --sdk "$AQW_AIR_SDK"
+      - name: Prepare release assets
+        env:
+          AQW_RELEASE_CHANNEL: ${{ inputs.channel || 'unstable' }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import os
+          import re
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          version = ET.parse('build/Probe-app.xml').findtext('{*}versionNumber')
+          if not version or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version):
+              raise ValueError('Expected a major.minor.patch app version')
+          channel = os.environ['AQW_RELEASE_CHANNEL']
+          if channel not in ('stable', 'unstable'):
+              raise ValueError('Unknown release channel: ' + channel)
+          suffix = '-unstable' if channel == 'unstable' else ''
+          ipa = Path('output') / f'AQWorlds-Classic-{version}.ipa'
+          if suffix:
+              ipa = ipa.rename(ipa.with_name(f'{ipa.stem}{suffix}.ipa'))
+          digest = hashlib.sha256(ipa.read_bytes()).hexdigest()
+          ipa.with_name('SHA256SUMS.txt').write_text(f'{digest}  {ipa.name}\n')
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write(f'AQW_RELEASE_VERSION={version}\nAQW_RELEASE_TAG=v{version}{suffix}\n')
+              env.write(f'AQW_RELEASE_IPA={ipa.name}\nAQW_RELEASE_LABEL={channel.capitalize()}\n')
+          PY
       - name: Verify phone layout, map rasterisation and movement coordinates
         run: python3 loader_smoke.py --sdk "$AQW_AIR_SDK" --label phone
       - name: Verify tablet layout, map rasterisation and movement coordinates
@@ -236,24 +270,61 @@ jobs:
           path: output/
           if-no-files-found: warn
           retention-days: 7
-      - name: Publish development release
-        if: github.event_name == 'workflow_dispatch' && inputs.publish
+      - name: Publish release
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
-          import hashlib
-          from pathlib import Path
-          p = next(Path('output').glob('*.ipa'))
-          Path('output/SHA256SUMS.txt').write_text(hashlib.sha256(p.read_bytes()).hexdigest() + '  ' + p.name + '\n')
-          PY
-          gh release create v0.1.9 output/*.ipa output/SHA256SUMS.txt \
-            --title 'AQWorlds Classic 0.1.9' --prerelease --notes-file RELEASE_NOTES.md
-          python3 - <<'PY'
-          import base64, json, subprocess
-          data = json.loads(subprocess.check_output(['gh', 'api', 'repos/${{ github.repository }}/contents/README.md']))
-          text = base64.b64decode(data['content']).decode().replace('0.1.8', '0.1.9')
-          payload = {'message': 'Update download to 0.1.9', 'sha': data['sha'], 'content': base64.b64encode(text.encode()).decode()}
-          subprocess.run(['gh', 'api', '--method', 'PUT', 'repos/${{ github.repository }}/contents/README.md', '--input', '-'], input=json.dumps(payload).encode(), check=True, stdout=subprocess.DEVNULL)
+          import base64
+          import json
+          import os
+          import subprocess
+
+          repo = os.environ['GITHUB_REPOSITORY']
+          commit = os.environ['GITHUB_SHA']
+          version = os.environ['AQW_RELEASE_VERSION']
+          tag = os.environ['AQW_RELEASE_TAG']
+          ipa = os.environ['AQW_RELEASE_IPA']
+          label = os.environ['AQW_RELEASE_LABEL']
+          preview = label == 'Unstable'
+
+          endpoint = f'repos/{repo}/contents/README.md'
+          data = json.loads(subprocess.check_output(['gh', 'api', f'{endpoint}?ref=main']))
+          readme = base64.b64decode(data['content']).decode()
+          lines = readme.splitlines(keepends=True)
+          row, = [i for i, line in enumerate(lines) if line.startswith(f'| {label} | ')]
+          old_version = lines[row].split('|')[2].strip()
+          if old_version != '—' and tuple(map(int, old_version.split('.'))) > tuple(map(int, version.split('.'))):
+              raise RuntimeError(f'{label} {old_version} is already listed in Downloads')
+          url = f"https://github.com/{repo}/releases/download/{tag}/{ipa}"
+          lines[row] = f'| {label} | {version} | [Download]({url}) |\n'
+          updated = ''.join(lines)
+
+          ref = f'refs/tags/{tag}'
+          refs = dict(line.split()[::-1] for line in subprocess.check_output(
+              ['git', 'ls-remote', '--tags', 'origin', ref, ref + '^{}'], text=True
+          ).splitlines())
+          tag_commit = refs.get(ref + '^{}', refs.get(ref))
+          if tag_commit and tag_commit != commit:
+              raise RuntimeError(f'{tag} already points to another commit. Bump the app version.')
+          existing = subprocess.run(['gh', 'release', 'view', tag, '--json', 'isDraft,isPrerelease,assets'],
+                                    capture_output=True, text=True)
+          if existing.returncode == 0:
+              release = json.loads(existing.stdout)
+              assets = {asset['name'] for asset in release['assets']}
+              if tag_commit != commit or release['isDraft'] or release['isPrerelease'] != preview or not {ipa, 'SHA256SUMS.txt'} <= assets:
+                  raise RuntimeError(f'{tag} already exists with different release metadata.')
+          else:
+              flags = ['--prerelease', '--latest=false'] if preview else ['--latest']
+              subprocess.run(['gh', 'release', 'create', tag, f'output/{ipa}', 'output/SHA256SUMS.txt',
+                              '--target', commit, '--title', f'AQWorlds Classic {version} ({label})',
+                              '--generate-notes', *flags], check=True)
+
+          if updated != readme:
+              payload = {'message': f'Update {label} download to {version}', 'branch': 'main',
+                         'sha': data['sha'], 'content': base64.b64encode(updated.encode()).decode()}
+              subprocess.run(['gh', 'api', '--method', 'PUT', endpoint, '--input', '-'],
+                             input=json.dumps(payload).encode(), check=True, stdout=subprocess.DEVNULL)
           PY
 

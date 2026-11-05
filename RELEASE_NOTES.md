@@ -1,4 +1,4 @@
-Development preview of AQWorlds Classic for iOS and iPadOS.
+AQWorlds Classic 0.1.9 is the Stable release for iOS and iPadOS.
 
 **[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.9/AQWorlds-Classic-0.1.9.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
 
@@ -12,7 +12,11 @@ Development preview of AQWorlds Classic for iOS and iPadOS.
 
 ### Testing
 
-Release checks cover the native background in iOS Simulator, including texture loading, transparent game-area clipping, phone and tablet margin geometry, and disabled background input. AIR checks also exercise official game and external asset loading, map rasterisation and movement-coordinate conversion without signing in. Physical-device gameplay remains to be confirmed.
+Release checks cover the native background in iOS Simulator, including texture loading, transparent game-area clipping, phone and tablet margin geometry, and disabled background input. AIR checks also exercise official game and external asset loading, map rasterisation and movement-coordinate conversion without signing in.
+
+### Release channels
+
+Stable is the full release. Upcoming updates are published as Unstable pre-releases with `-unstable.ipa` filenames. The current build for each channel is listed under [Downloads](https://github.com/krittayot611/aqworlds-classic-ios#downloads).
 
 ### Installation
 
