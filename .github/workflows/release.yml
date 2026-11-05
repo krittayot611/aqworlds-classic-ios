@@ -118,7 +118,7 @@ jobs:
             "'libAQWMargins-arm64.a',\n"
             "                '-output', directory / 'libAQWMargins-universal.a')\n"
             "            (directory / 'libAQWMargins-universal.a').replace(directory / 'libAQWMargins.a')\n"
-            "            run('xcrun', 'lipo', '-verify_arch', 'x86_64', 'arm64', directory / 'libAQWMargins.a')\n"
+            "            run('xcrun', 'lipo', directory / 'libAQWMargins.a', '-verify_arch', 'x86_64', 'arm64')\n"
             "        command += ['-platform', platform, '-platformoptions', str(root / 'native/platform-ios.xml'), "
             "'-C', str(directory), 'library.swf', 'libAQWMargins.a']"),
            ("print('Native gutter background compiled for arm64 iOS and x86_64 iOS Simulator.')",
