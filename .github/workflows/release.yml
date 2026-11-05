@@ -130,6 +130,50 @@ jobs:
                   raise RuntimeError('Unexpected native extension build code')
               text = text.replace(before, after, 1)
           p.write_text(text)
+          simulator_smoke_config_fixes = {'Main.as': [('            writeStartup("Stage attached");\n\n            createBackdrop();',
+                        '            writeStartup("Stage attached");\n'
+                        '\n'
+                        '            // The simulator test package carries this resource because iOS\n'
+                        '            // does not deliver the simulator launch arguments through INVOKE.\n'
+                        '            var smokeConfig:File = '
+                        'File.applicationDirectory.resolvePath("aqw-simulator-smoke.txt");\n'
+                        '            if (smokeConfig.exists) {\n'
+                        '                var smokeStream:FileStream = new FileStream();\n'
+                        '                smokeStream.open(smokeConfig, FileMode.READ);\n'
+                        '                setSmokeAsset(smokeStream.readUTFBytes(smokeStream.bytesAvailable));\n'
+                        '                smokeStream.close();\n'
+                        '                writeStartup("Simulator smoke configuration loaded: " + smokeAssetFile);\n'
+                        '            }\n'
+                        '\n'
+                        '            createBackdrop();'),
+                       ('                    smokeAssetFile = argument.substr(15);\n'
+                        '                    if (!/^[A-Za-z0-9_-]+\\.swf$/.test(smokeAssetFile)) smokeAssetFile = '
+                        'null;',
+                        '                    setSmokeAsset(argument.substr(15));'),
+                       ('        private function createBackdrop():void {',
+                        '        private function setSmokeAsset(value:String):void {\n'
+                        '            smokeAssetFile = /^[A-Za-z0-9_-]+\\.swf$/.test(value) ? value : null;\n'
+                        '        }\n'
+                        '\n'
+                        '        private function createBackdrop():void {')],
+           'native_smoke.py': [("        ipa = directory / 'simulator.ipa'",
+                                "        smoke_config = directory / 'aqw-simulator-smoke.txt'\n"
+                                "        smoke_config.write_text('Assets_20260702.swf', encoding='ascii')\n"
+                                "        ipa = directory / 'simulator.ipa'"),
+                               ("'-C', root / 'build', 'Probe.swf', 'icons', 'Background.jpg')",
+                                "'-C', root / 'build', 'Probe.swf', 'icons', 'Background.jpg',\n"
+                                "            '-C', directory, smoke_config.name)"),
+                               ("run('xcrun', 'simctl', 'launch', udid, bundle_id, "
+                                "'--smoke-assets=Assets_20260702.swf')",
+                                "run('xcrun', 'simctl', 'launch', udid, bundle_id)")]}
+          for filename, replacements in simulator_smoke_config_fixes.items():
+              p = Path(filename)
+              text = p.read_text()
+              for before, after in replacements:
+                  if text.count(before) != 1:
+                      raise RuntimeError('Unexpected simulator smoke configuration in ' + filename)
+                  text = text.replace(before, after, 1)
+              p.write_text(text)
           PYFIX
           fi
       - uses: actions/setup-java@v6
