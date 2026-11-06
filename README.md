@@ -15,7 +15,9 @@ An unofficial iOS and iPadOS client for AQWorlds Classic.
 | Stable | 0.1.9 | [Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.9/AQWorlds-Classic-0.1.9.ipa) |
 | Unstable | — | First build pending |
 
-Stable is the full release for iPhone and iPad. New updates are published as Unstable pre-releases with `-unstable.ipa` filenames. Stable changes are published after approval, including fixes designated for Stable.
+**Stable** — The full release for iPhone and iPad.
+
+**Unstable** — A preview build for testing the latest changes.
 
 ## About
 
