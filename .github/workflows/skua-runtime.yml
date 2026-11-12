@@ -1,0 +1,75 @@
+name: Experimental C# runtime
+on:
+  push:
+    branches: [unstable/skua-script-runtime]
+    paths: ['experimental/SkuaMobile/**', '.github/workflows/skua-runtime.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  managed-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet run --project experimental/SkuaMobile/Checks -c Release
+  ios-interpreter:
+    needs: managed-checks
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install iOS toolchain
+        run: dotnet workload install ios
+      - name: Bundle compiler metadata
+        shell: python
+        run: |
+          import os, pathlib, shutil
+          root = pathlib.Path(os.environ['DOTNET_ROOT']) / 'packs/Microsoft.NETCore.App.Ref'
+          versions = sorted(root.glob('10.*/ref/net10.0'), key=lambda p: tuple(map(int, p.parents[1].name.split('.'))))
+          assert versions, 'No .NET 10 compiler metadata found'
+          target = pathlib.Path('experimental/SkuaMobile/iOS/Metadata')
+          target.mkdir(parents=True, exist_ok=True)
+          for path in versions[-1].glob('*.dll'):
+              shutil.copy2(path, target / path.name)
+      - name: Build Release simulator app with interpreter
+        run: |
+          RID=iossimulator-arm64
+          if [ "$(uname -m)" = x86_64 ]; then RID=iossimulator-x64; fi
+          dotnet build experimental/SkuaMobile/iOS -c Release -r "$RID" -p:EnableCodeSigning=false
+      - name: Execute imported C# in iOS simulator
+        shell: python
+        run: |
+          import json, pathlib, subprocess, time
+          def run(*args):
+              return subprocess.check_output(args, text=True, timeout=120).strip()
+          devices = json.loads(run('xcrun', 'simctl', 'list', 'devices', 'available', '-j'))['devices']
+          phones = [d for runtime, group in devices.items() if 'iOS' in runtime for d in group if d['name'].startswith('iPhone')]
+          assert phones, 'No available iPhone simulator'
+          device = phones[0]
+          if device['state'] != 'Booted': run('xcrun', 'simctl', 'boot', device['udid'])
+          run('xcrun', 'simctl', 'bootstatus', device['udid'], '-b')
+          app = next(pathlib.Path('experimental/SkuaMobile/iOS/bin/Release').glob('**/AqwScriptRuntimeCheck.app'))
+          run('xcrun', 'simctl', 'install', device['udid'], str(app))
+          run('xcrun', 'simctl', 'launch', device['udid'], 'com.personal.aqw.scriptcheck')
+          container = pathlib.Path(run('xcrun', 'simctl', 'get_app_container', device['udid'], 'com.personal.aqw.scriptcheck', 'data'))
+          result = container / 'Documents/runtime-result.txt'
+          deadline = time.monotonic() + 90
+          while not result.exists() and time.monotonic() < deadline: time.sleep(1)
+          assert result.exists(), 'iOS runtime check timed out without a result'
+          text = result.read_text()
+          print(text)
+          pathlib.Path('runtime-result.txt').write_text(text)
+          assert text.startswith('PASS:'), 'iOS interpreter failed'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: skua-runtime-check
+          path: runtime-result.txt
+          if-no-files-found: warn
