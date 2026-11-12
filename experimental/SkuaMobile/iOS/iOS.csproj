@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>AqwScriptRuntimeCheck</AssemblyName>
+    <ApplicationId>com.personal.aqw.scriptcheck</ApplicationId>
+    <ApplicationTitle>AQW Runtime Check</ApplicationTitle>
+    <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseInterpreter>true</UseInterpreter>
+    <PublishAot>false</PublishAot>
+    <TrimMode>copy</TrimMode>
+    <EnableAssemblyILStripping>false</EnableAssemblyILStripping>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Runtime/Runtime.csproj" />
+    <BundleResource Include="Metadata/*.dll" LogicalName="metadata/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
