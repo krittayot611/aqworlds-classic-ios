@@ -45,6 +45,13 @@ before building. It compiles an imported C# file to IL and executes it with the
 Mono interpreter enabled in Release. The result is written to
 `Documents/runtime-result.txt`. A simulator pass still needs physical-device confirmation.
 
+The CI check signs the ARM64 simulator app and verifies its signature before
+installation. `run_ios_check.py` selects a simulator compatible with the active
+Xcode SDK and archives console output, execution stages, a screen capture and
+available crash reports in the `skua-runtime-check` artifact. Reaching managed
+startup or completing the build does not count as a script-execution pass; the
+app must return a `PASS:` result after compiling, loading and invoking the script.
+
 Before integrating the bot, this check must pass on iOS, then the managed runtime
 must be hosted alongside AIR with a working AS3/native bridge. The existing
 Windows ActiveX and ExternalInterface transport cannot be reused as-is.
