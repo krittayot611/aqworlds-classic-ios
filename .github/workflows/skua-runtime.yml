@@ -46,32 +46,12 @@ jobs:
           if [ "$(uname -m)" = x86_64 ]; then RID=iossimulator-x64; fi
           dotnet build experimental/SkuaMobile/iOS -c Release -r "$RID" -p:EnableCodeSigning=false
       - name: Execute imported C# in iOS simulator
-        shell: python
         run: |
-          import json, pathlib, subprocess, time
-          def run(*args):
-              return subprocess.check_output(args, text=True, timeout=120).strip()
-          devices = json.loads(run('xcrun', 'simctl', 'list', 'devices', 'available', '-j'))['devices']
-          phones = [d for runtime, group in devices.items() if 'iOS' in runtime for d in group if d['name'].startswith('iPhone')]
-          assert phones, 'No available iPhone simulator'
-          device = phones[0]
-          if device['state'] != 'Booted': run('xcrun', 'simctl', 'boot', device['udid'])
-          run('xcrun', 'simctl', 'bootstatus', device['udid'], '-b')
-          app = next(pathlib.Path('experimental/SkuaMobile/iOS/bin/Release').glob('**/AqwScriptRuntimeCheck.app'))
-          run('xcrun', 'simctl', 'install', device['udid'], str(app))
-          run('xcrun', 'simctl', 'launch', device['udid'], 'com.personal.aqw.scriptcheck')
-          container = pathlib.Path(run('xcrun', 'simctl', 'get_app_container', device['udid'], 'com.personal.aqw.scriptcheck', 'data'))
-          result = container / 'Documents/runtime-result.txt'
-          deadline = time.monotonic() + 90
-          while not result.exists() and time.monotonic() < deadline: time.sleep(1)
-          assert result.exists(), 'iOS runtime check timed out without a result'
-          text = result.read_text()
-          print(text)
-          pathlib.Path('runtime-result.txt').write_text(text)
-          assert text.startswith('PASS:'), 'iOS interpreter failed'
+          APP=$(find experimental/SkuaMobile/iOS/bin/Release -name AqwScriptRuntimeCheck.app -type d -print -quit)
+          python3 experimental/SkuaMobile/run_ios_check.py --app "$APP"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: skua-runtime-check
-          path: runtime-result.txt
+          path: runtime-diagnostics/
           if-no-files-found: warn
