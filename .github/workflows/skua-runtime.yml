@@ -44,7 +44,11 @@ jobs:
         run: |
           RID=iossimulator-arm64
           if [ "$(uname -m)" = x86_64 ]; then RID=iossimulator-x64; fi
-          dotnet build experimental/SkuaMobile/iOS -c Release -r "$RID" -p:EnableCodeSigning=false
+          dotnet build experimental/SkuaMobile/iOS -c Release -r "$RID" -p:EnableCodeSigning=true -p:CodesignKey=- -p:CodesignRequireProvisioningProfile=false
+      - name: Verify simulator code signature
+        run: |
+          APP=$(find experimental/SkuaMobile/iOS/bin/Release -name AqwScriptRuntimeCheck.app -type d -print -quit)
+          codesign --verify --deep --strict --verbose=2 "$APP"
       - name: Execute imported C# in iOS simulator
         run: |
           APP=$(find experimental/SkuaMobile/iOS/bin/Release -name AqwScriptRuntimeCheck.app -type d -print -quit)
