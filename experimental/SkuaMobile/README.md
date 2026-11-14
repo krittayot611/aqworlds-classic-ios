@@ -47,7 +47,8 @@ Mono interpreter enabled in Release. The result is written to
 
 The CI check signs the ARM64 simulator app and verifies its signature before
 installation. `run_ios_check.py` selects a simulator compatible with the active
-Xcode SDK and archives console output, execution stages, a screen capture and
+Xcode SDK, requires a successful launch command with an application PID, and
+archives launch output, execution stages, system logs, a screen capture and
 available crash reports in the `skua-runtime-check` artifact. Reaching managed
 startup or completing the build does not count as a script-execution pass; the
 app must return a `PASS:` result after compiling, loading and invoking the script.
