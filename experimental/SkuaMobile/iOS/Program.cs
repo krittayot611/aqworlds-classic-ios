@@ -5,7 +5,7 @@ using System.Diagnostics;
 
 RuntimeTrace.Note("Managed Main entered");
 AppDomain.CurrentDomain.UnhandledException += (_, e) => RuntimeTrace.Finish("FAIL: unhandled " + e.ExceptionObject);
-try { UIApplication.Main(args, null, "AQWRuntimeAppDelegate"); }
+try { UIApplication.Main(args, null, typeof(AppDelegate)); }
 catch (Exception e)
 {
     RuntimeTrace.Finish("FAIL: application startup " + e);
