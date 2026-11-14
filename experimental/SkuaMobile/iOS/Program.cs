@@ -5,7 +5,7 @@ using System.Diagnostics;
 
 RuntimeTrace.Note("Managed Main entered");
 AppDomain.CurrentDomain.UnhandledException += (_, e) => RuntimeTrace.Finish("FAIL: unhandled " + e.ExceptionObject);
-try { UIApplication.Main(args, null, typeof(AppDelegate)); }
+try { UIApplication.Main(args, null, "AQWRuntimeAppDelegate"); }
 catch (Exception e)
 {
     RuntimeTrace.Finish("FAIL: application startup " + e);
@@ -43,11 +43,15 @@ internal static class RuntimeTrace
     }
 }
 
-[Register("AppDelegate")]
+[Preserve(AllMembers = true)]
+[Register("AQWRuntimeAppDelegate")]
 public sealed class AppDelegate : UIApplicationDelegate
 {
+    public AppDelegate() => RuntimeTrace.Note("AppDelegate constructed");
+
     public override UIWindow? Window { get; set; }
 
+    [Export("application:didFinishLaunchingWithOptions:")]
     public override bool FinishedLaunching(UIApplication application, NSDictionary? launchOptions)
     {
         RuntimeTrace.Note("FinishedLaunching entered");
