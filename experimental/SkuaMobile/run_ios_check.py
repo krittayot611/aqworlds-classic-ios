@@ -33,7 +33,7 @@ def choose_phone(devices: dict, runtimes: list[dict], sdk: str) -> dict:
     ]
     if not phones:
         raise RuntimeError(f"No available iPhone simulator compatible with Xcode SDK {sdk}")
-    return max(phones, key=lambda d: (d["runtimeVersion"], d["state"] == "Booted", d["name"]))
+    return max(phones, key=lambda d: (d["runtimeVersion"], d["state"] == "Booted", d["name"].startswith("iPhone 16"), d["name"]))
 
 
 def main() -> None:
@@ -82,7 +82,7 @@ def main() -> None:
         print("Selected:", device, flush=True)
         if device["state"] != "Booted":
             run("xcrun", "simctl", "boot", device["udid"])
-        run("xcrun", "simctl", "bootstatus", device["udid"], "-b", timeout=180)
+        run("xcrun", "simctl", "bootstatus", device["udid"], "-b", timeout=300)
         run("xcrun", "simctl", "install", device["udid"], str(app))
         container = Path(run("xcrun", "simctl", "get_app_container", device["udid"], BUNDLE, "data"))
         # A fresh result is required even if a developer reruns this check locally.
