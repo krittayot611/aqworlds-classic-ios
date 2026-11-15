@@ -108,9 +108,10 @@ def main() -> None:
         # A fresh result is required even if a developer reruns this check locally.
         for name in ("runtime-result.txt", "runtime-progress.txt"):
             (container / "Documents" / name).unlink(missing_ok=True)
-        # Launch independently of a console attachment: a stalled attach must not
-        # be mistaken for a running application or a compiler timeout.
-        launch_output = run("xcrun", "simctl", "launch", "--terminate-running-process",
+        # This freshly installed CI app has no process to terminate. Avoid the
+        # iOS 26 FrontBoard termination request before launching it directly.
+        # A console attachment is also unnecessary: results are stored in Documents.
+        launch_output = run("xcrun", "simctl", "launch",
                             device["udid"], BUNDLE, timeout=60)
         (output / "launch-result.txt").write_text(launch_output)
         if not launch_output.startswith(BUNDLE + ": "):
