@@ -5,7 +5,15 @@ using System.Diagnostics;
 
 RuntimeTrace.Note("Managed Main entered");
 AppDomain.CurrentDomain.UnhandledException += (_, e) => RuntimeTrace.Finish("FAIL: unhandled " + e.ExceptionObject);
-try { UIApplication.Main(args, null, typeof(AppDelegate)); }
+try
+{
+    RuntimeTrace.Note("Resolving Objective-C app delegate");
+    var nativeDelegate = new ObjCRuntime.Class(typeof(AppDelegate));
+    RuntimeTrace.Note($"Objective-C delegate: {nativeDelegate.Name}");
+    if (nativeDelegate.Name != "AQWRuntimeAppDelegate")
+        throw new InvalidOperationException($"Unexpected delegate class: {nativeDelegate.Name}");
+    UIApplication.Main(args, null, typeof(AppDelegate));
+}
 catch (Exception e)
 {
     RuntimeTrace.Finish("FAIL: application startup " + e);
