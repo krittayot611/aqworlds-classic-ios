@@ -9,6 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UseInterpreter>true</UseInterpreter>
+    <Registrar>static</Registrar>
     <PublishAot>false</PublishAot>
     <TrimMode>copy</TrimMode>
     <EnableAssemblyILStripping>false</EnableAssemblyILStripping>
