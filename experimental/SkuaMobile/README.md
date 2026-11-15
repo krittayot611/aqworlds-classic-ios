@@ -45,19 +45,25 @@ before building. It compiles an imported C# file to IL and executes it with the
 Mono interpreter enabled in Release. The result is written to
 `Documents/runtime-result.txt`. A simulator pass still needs physical-device confirmation.
 
-The CI check signs the ARM64 simulator app and verifies its signature before
-installation. `run_ios_check.py` selects a simulator compatible with the active
-Xcode SDK, requires a successful launch command with an application PID, and
-archives launch output, execution stages, system logs, a screen capture and
-available crash reports in the `skua-runtime-check` artifact. Reaching managed
-startup or completing the build does not count as a script-execution pass; the
-app must return a `PASS:` result after compiling, loading and invoking the script.
+On 2026-11-16, [CI run 43765503067](https://github.com/krittayot611/aqworlds-classic-ios/actions/runs/43765503067)
+passed the iOS 26.0 simulator execution check on ARM64 and Intel. Both runs
+compiled the imported test file, loaded its IL, invoked `ScriptMain` and verified
+the result was `42`. Physical-device validation remains pending.
 
-Before integrating the bot, this check must pass on iOS, then the managed runtime
-must be hosted alongside AIR with a working AS3/native bridge. The existing
-Windows ActiveX and ExternalInterface transport cannot be reused as-is.
-Touch UI, game API integration, cooperative stop/pause and real farming validation
-remain outstanding. No bot-enabled IPA has been produced.
+The native static registrar, explicit Objective-C initializer and launch-selector
+check ensure the app delegate can receive UIKit callbacks before the compiler
+check starts. The CI matrix signs and verifies each simulator app before
+installation. `run_ios_check.py` records launch output, execution stages and
+system logs, and attempts to capture a screenshot and any available crash reports.
+Artifacts are named `skua-runtime-check-macos-15` and
+`skua-runtime-check-macos-15-intel`. A pass requires the app to return `PASS:`
+after compiling, loading and invoking the script.
+
+Next, validate on a physical iOS device and host the managed runtime alongside AIR
+with an AS3/native bridge. The existing Windows ActiveX and ExternalInterface
+transport needs a mobile implementation. Touch UI, game API integration,
+cooperative stop/pause and farming validation remain outstanding.
+No bot-enabled IPA has been produced.
 
 Upstream inspected: NinjaXz/VibeSkua commit
 `b8ed1797498a791648b04abfd1a4284870ef875d`.
