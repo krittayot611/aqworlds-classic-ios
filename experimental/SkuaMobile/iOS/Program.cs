@@ -12,7 +12,13 @@ try
     RuntimeTrace.Note($"Objective-C delegate: {nativeDelegate.Name}");
     if (nativeDelegate.Name != "AQWRuntimeAppDelegate")
         throw new InvalidOperationException($"Unexpected delegate class: {nativeDelegate.Name}");
-    UIApplication.Main(args, null, typeof(AppDelegate));
+    using var probe = new AppDelegate();
+    var launchSelector = new ObjCRuntime.Selector("application:didFinishLaunchingWithOptions:");
+    var responds = probe.RespondsToSelector(launchSelector);
+    RuntimeTrace.Note($"Delegate responds to launch selector: {responds}");
+    if (!responds) throw new InvalidOperationException("Native launch callback is missing.");
+    RuntimeTrace.Note("Entering UIApplicationMain with verified native class name");
+    UIApplication.Main(args, null, "AQWRuntimeAppDelegate");
 }
 catch (Exception e)
 {
@@ -55,6 +61,7 @@ internal static class RuntimeTrace
 [Register("AQWRuntimeAppDelegate")]
 public sealed class AppDelegate : UIApplicationDelegate
 {
+    [Export("init")]
     public AppDelegate() => RuntimeTrace.Note("AppDelegate constructed");
 
     public override UIWindow? Window { get; set; }
