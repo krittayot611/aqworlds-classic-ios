@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -33,7 +32,25 @@ def choose_phone(devices: dict, runtimes: list[dict], sdk: str) -> dict:
     ]
     if not phones:
         raise RuntimeError(f"No available iPhone simulator compatible with Xcode SDK {sdk}")
-    return max(phones, key=lambda d: (d["runtimeVersion"], d["state"] == "Booted", d["name"].startswith("iPhone 16"), d["name"]))
+    return max(phones, key=lambda d: (d["runtimeVersion"], d["state"] == "Booted", d["name"] == "iPhone 16", d["name"]))
+
+
+def boot_device(device: dict, run) -> dict:
+    """Retry infrastructure startup once on a fresh simulator, without erasing data."""
+    try:
+        if device["state"] != "Booted":
+            run("xcrun", "simctl", "boot", device["udid"])
+        run("xcrun", "simctl", "bootstatus", device["udid"], "-b", timeout=240)
+        return device
+    except (subprocess.TimeoutExpired, RuntimeError) as error:
+        print(f"Simulator boot failed; trying a fresh device: {error}", flush=True)
+        run("xcrun", "simctl", "shutdown", device["udid"], timeout=30, required=False)
+        fresh_id = run("xcrun", "simctl", "create", "AQW Runtime Check Retry",
+                       device["deviceTypeIdentifier"], device["runtime"], timeout=60)
+        fresh = {**device, "udid": fresh_id, "state": "Shutdown", "freshBootRetry": True}
+        run("xcrun", "simctl", "boot", fresh_id)
+        run("xcrun", "simctl", "bootstatus", fresh_id, "-b", timeout=240)
+        return fresh
 
 
 def main() -> None:
@@ -49,6 +66,7 @@ def main() -> None:
         raise RuntimeError(f"Missing built app: {app}")
     device = None
     container = None
+    app_pid = None
     launched_at = time.time()
     command_number = 0
 
@@ -64,7 +82,11 @@ def main() -> None:
                 raise RuntimeError(f"Command failed ({proc.returncode}): {' '.join(command)}\n{text[-6000:]}")
             return proc.stdout.strip()
         except subprocess.TimeoutExpired as exc:
-            (output / f"command-{command_number:02}.txt").write_text(str(exc))
+            def decode(value):
+                return value.decode(errors="replace") if isinstance(value, bytes) else (value or "")
+            evidence = decode(exc.stdout) + decode(exc.stderr)
+            (output / f"command-{command_number:02}.txt").write_text(evidence + "\n" + str(exc))
+            print(evidence[-2000:], flush=True)
             if required:
                 raise
             return ""
@@ -79,9 +101,8 @@ def main() -> None:
         device = choose_phone(device_inventory["devices"], runtime_inventory["runtimes"], sdk)
         (output / "selected-device.json").write_text(json.dumps(device, indent=2))
         print("Selected:", device, flush=True)
-        if device["state"] != "Booted":
-            run("xcrun", "simctl", "boot", device["udid"])
-        run("xcrun", "simctl", "bootstatus", device["udid"], "-b", timeout=300)
+        device = boot_device(device, run)
+        (output / "selected-device.json").write_text(json.dumps(device, indent=2))
         run("xcrun", "simctl", "install", device["udid"], str(app))
         container = Path(run("xcrun", "simctl", "get_app_container", device["udid"], BUNDLE, "data"))
         # A fresh result is required even if a developer reruns this check locally.
@@ -94,6 +115,7 @@ def main() -> None:
         (output / "launch-result.txt").write_text(launch_output)
         if not launch_output.startswith(BUNDLE + ": "):
             raise RuntimeError(f"Simulator did not confirm an application PID: {launch_output}")
+        app_pid = int(launch_output.rsplit(":", 1)[1].strip())
         print("Launched:", launch_output, flush=True)
         result = container / "Documents/runtime-result.txt"
         progress = container / "Documents/runtime-progress.txt"
@@ -106,6 +128,8 @@ def main() -> None:
                 previous = current
             time.sleep(1)
         if not result.exists():
+            run("/usr/bin/sample", str(app_pid), "5", "-file", str(output / "app-stacks.txt"),
+                timeout=20, required=False)
             raise RuntimeError(f"No result after {args.timeout}s. Last stage:\n{previous[-4000:]}")
         text = result.read_text()
         (output / "runtime-result.txt").write_text(text)
