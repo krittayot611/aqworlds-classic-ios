@@ -111,8 +111,10 @@ def main() -> None:
         # This freshly installed CI app has no process to terminate. Avoid the
         # iOS 26 FrontBoard termination request before launching it directly.
         # A console attachment is also unnecessary: results are stored in Documents.
+        # CoreSimulatorBridge retries launch for 120 seconds. Let that request
+        # finish before the harness times out, so its actual error is retained.
         launch_output = run("xcrun", "simctl", "launch",
-                            device["udid"], BUNDLE, timeout=60)
+                            device["udid"], BUNDLE, timeout=150)
         (output / "launch-result.txt").write_text(launch_output)
         if not launch_output.startswith(BUNDLE + ": "):
             raise RuntimeError(f"Simulator did not confirm an application PID: {launch_output}")
