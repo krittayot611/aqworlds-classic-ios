@@ -89,6 +89,11 @@ and disposal. The iOS target runs these same mailbox checks after its imported
 C# execution check. This validates the managed protocol on iOS, not a connection
 to AIR or a game server.
 
+On 2026-11-16, [AIR bridge run 43785752587](https://github.com/krittayot611/aqworlds-classic-ios/actions/runs/43785752587)
+passed all twelve dispatcher fixture checks. The first run exposed ActionScript
+Error #1066 from invoking the `Function` constructor; dispatch now uses the
+existing function through `as Function` and calls it with its owning object.
+
 The separate `Experimental AIR bridge` workflow executes twelve dispatcher
 checks against local fixture objects. It exercises JSON result encoding,
 indexed reads, function ownership, invalid paths, errors, session correlation
