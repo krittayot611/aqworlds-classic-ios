@@ -37,7 +37,7 @@ public sealed class GameBridge(Func<bool> isGameThread) : IDisposable
         token.ThrowIfCancellationRequested();
         long id = Interlocked.Increment(ref nextId);
         if (id > 9007199254740991) throw new InvalidOperationException("Create a new bridge session before IDs exceed ActionScript precision.");
-        var json = JsonSerializer.Serialize(new { v = 1, session = Session, id, method, args });
+        var json = JsonSerializer.Serialize(new Dictionary<string, object?> { ["v"] = 1, ["session"] = Session, ["id"] = id, ["method"] = method, ["args"] = args });
         if (json.Length > 65536) throw new ArgumentException("Bridge request is too large.");
         var completion = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (gate)
