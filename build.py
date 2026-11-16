@@ -56,6 +56,7 @@ def main():
         java, "-Dflexlib=" + str(sdk / "frameworks"),
         "-jar", str(sdk / "lib/mxmlc-cli.jar"), "+configname=air",
         "-source-path=" + str(root),
+        "-source-path+=" + str(root / "native"),
         "-external-library-path+=" + str(build / "Margins.swc"),
         "-debug=false",
         "-output=" + str(build / "Probe.swf"), str(root / "Main.as"),
