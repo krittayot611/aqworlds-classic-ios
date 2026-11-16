@@ -83,6 +83,12 @@ block the AIR thread while waiting for managed execution.
 
 ## Bridge validation
 
+On 2026-11-16, [runtime run 43786250677, attempt 2](https://github.com/krittayot611/aqworlds-classic-ios/actions/runs/43786250677)
+passed imported C# execution and the bridge mailbox checks on both ARM64 and
+Intel iOS simulators. The first ARM64 attempt timed out during simulator boot
+before launching the app; the retry passed. This gate does not execute AIR
+commands or connect to a game server.
+
 The managed checks cover out-of-order replies, duplicates, cancellation, late
 responses, stale sessions, malformed replies, worker errors, UI-thread rejection
 and disposal. The iOS target runs these same mailbox checks after its imported
@@ -102,6 +108,20 @@ and detachment. Run it locally on a supported AIR desktop host with:
 ```sh
 python3 experimental/SkuaMobile/run_air_bridge_check.py --sdk /path/to/air-sdk
 ```
+
+## Native hosting experiment
+
+`NativeHost` tests a separate native Objective-C iOS app calling an exported
+managed method from a Mono library. The native app owns `UIApplicationMain` and
+runs the managed check on a worker. The experiment attempts the existing mailbox
+checks followed by compilation and execution of an imported C# file.
+
+The library target uses AOT to produce native exports and a custom runtime
+initializer to enable interpretation of imported IL. The initial interpreter-only
+library build failed to generate the export symbol files. This host is still
+under validation; its presence is not evidence that runtime embedding works.
+`Experimental native Mono host` is a development gate and produces no public
+IPA. It does not yet connect to an AIR native extension or implement a command pump.
 
 ## Remaining integration
 
