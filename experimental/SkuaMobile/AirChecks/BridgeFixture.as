@@ -44,10 +44,10 @@ package {
             ++checks; trace("PASS AIR bridge: " + label);
         }
     }
-    internal dynamic class FixtureWorld {
+}
+internal dynamic class FixtureWorld {
         public var strMapName:String = "battleon";
         public var health:int = 42;
         public var names:Array = ["one", "two"];
         public function jump(map:String):String { strMapName = map; return strMapName; }
     }
-}
