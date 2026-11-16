@@ -32,6 +32,20 @@ package {
 
     [SWF(width="960", height="550", frameRate="30", backgroundColor="#101820")]
     public class Main extends Sprite {
+        private var skuaBridge:SkuaGameBridge;
+        public function attachSkuaBridge(session:String):void {
+            if (gameClient == null) throw new Error("The game has not loaded yet.");
+            detachSkuaBridge();
+            skuaBridge = new SkuaGameBridge(gameClient, session);
+        }
+        public function dispatchSkuaCommand(request:String):String {
+            if (skuaBridge == null) throw new Error("The Skua bridge is not attached.");
+            return skuaBridge.execute(request);
+        }
+        public function detachSkuaBridge():void {
+            if (skuaBridge != null) skuaBridge.detach();
+            skuaBridge = null;
+        }
         [Embed(source="Background.jpg")]
         private static const BackgroundImage:Class;
         private var backdrop:Sprite = new Sprite();
@@ -315,6 +329,7 @@ package {
                 game.scrollRect = null;
                 stage.addChildAt(game, 0);
                 writeStartup("Game is Stage child zero; background input disabled");
+                detachSkuaBridge();
                 gameClient = game;
                 centerStage();
                 panel.visible = false;
