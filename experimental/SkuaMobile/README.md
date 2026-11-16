@@ -59,10 +59,52 @@ Artifacts are named `skua-runtime-check-macos-15` and
 `skua-runtime-check-macos-15-intel`. A pass requires the app to return `PASS:`
 after compiling, loading and invoking the script.
 
-Next, validate on a physical iOS device and host the managed runtime alongside AIR
-with an AS3/native bridge. The existing Windows ActiveX and ExternalInterface
-transport needs a mobile implementation. Touch UI, game API integration,
-cooperative stop/pause and farming validation remain outstanding.
+## Game command bridge
+
+`Runtime/GameBridge.cs` provides a bounded worker-to-AIR command mailbox with
+request correlation, session isolation, cancellation, timeouts and explicit
+error propagation. Synchronous calls are rejected on the game thread.
+`MobileFlashClient` exposes the basic Skua Flash method names and preserves
+JSON-string results; it is not the complete VibeSkua bot interface.
+
+`native/SkuaGameBridge.as` dispatches dotted game-property reads, indexed reads,
+null checks and function calls against the loaded game object. Function calls
+retain their owning object. `Main.as` exposes attach, dispatch and detach hooks,
+and discards an old attachment when a game client is loaded. These hooks do not
+change the viewport, touch handling or artwork, and no bridge is attached by
+default.
+
+The message envelope is versioned and contains a session, numeric request ID,
+method and argument array. A response echoes the session and ID, with either a
+JSON-string result or an error. The future native host must drain commands on
+the AIR thread and deliver responses to the managed mailbox. It must detach and
+release pending calls when the game or script session ends. The host must never
+block the AIR thread while waiting for managed execution.
+
+## Bridge validation
+
+The managed checks cover out-of-order replies, duplicates, cancellation, late
+responses, stale sessions, malformed replies, worker errors, UI-thread rejection
+and disposal. The iOS target runs these same mailbox checks after its imported
+C# execution check. This validates the managed protocol on iOS, not a connection
+to AIR or a game server.
+
+The separate `Experimental AIR bridge` workflow executes twelve dispatcher
+checks against local fixture objects. It exercises JSON result encoding,
+indexed reads, function ownership, invalid paths, errors, session correlation
+and detachment. Run it locally on a supported AIR desktop host with:
+
+```sh
+python3 experimental/SkuaMobile/run_air_bridge_check.py --sdk /path/to/air-sdk
+```
+
+## Remaining integration
+
+The managed runtime still needs to be embedded alongside AIR through a native
+extension. A standalone .NET iOS test app does not supply that host. No native
+command pump connects the two implementations yet. Full `IScriptInterface`
+coverage, script import UI for iPhone and iPad, cooperative stop/pause and live
+farming validation remain outstanding. Physical-device validation is also pending.
 No bot-enabled IPA has been produced.
 
 Upstream inspected: NinjaXz/VibeSkua commit
