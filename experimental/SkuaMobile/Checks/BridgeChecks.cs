@@ -15,6 +15,7 @@ internal static class BridgeChecks
                 id = doc.RootElement.GetProperty("id").GetInt64(), ok, result = value, error = value });
         }
         var first = bridge.CallAsync("getGameObject", ["world.strMapName"], TimeSpan.FromSeconds(5));
+        if (first.IsFaulted) await first; // Surface serialization/platform faults before queue assertions.
         var second = bridge.CallAsync("isNull", ["world"], TimeSpan.FromSeconds(5));
         Check(bridge.TryTakeRequest(out var a) && a is not null, "first request queued");
         Check(bridge.TryTakeRequest(out var b) && b is not null, "second request queued");
