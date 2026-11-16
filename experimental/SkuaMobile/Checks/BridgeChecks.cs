@@ -11,8 +11,8 @@ internal static class BridgeChecks
         string Reply(string request, string value, bool ok = true, string? session = null)
         {
             using var doc = JsonDocument.Parse(request);
-            return JsonSerializer.Serialize(new { v = 1, session = session ?? bridge.Session,
-                id = doc.RootElement.GetProperty("id").GetInt64(), ok, result = value, error = value });
+            return JsonSerializer.Serialize(new Dictionary<string, object?> { ["v"] = 1, ["session"] = session ?? bridge.Session,
+                ["id"] = doc.RootElement.GetProperty("id").GetInt64(), ["ok"] = ok, ["result"] = value, ["error"] = value });
         }
         var first = bridge.CallAsync("getGameObject", ["world.strMapName"], TimeSpan.FromSeconds(5));
         if (first.IsFaulted) await first; // Surface serialization/platform faults before queue assertions.
