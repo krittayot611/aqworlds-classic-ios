@@ -15,6 +15,7 @@
     <EnableAssemblyILStripping>false</EnableAssemblyILStripping>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../Checks/BridgeChecks.cs" Link="BridgeChecks.cs" />
     <ProjectReference Include="../Runtime/Runtime.csproj" />
     <BundleResource Include="Metadata/*.dll" LogicalName="metadata/%(Filename)%(Extension)" />
   </ItemGroup>
