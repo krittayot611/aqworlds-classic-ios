@@ -1,0 +1,4 @@
+<linker>
+  <assembly fullname="AqwManagedHost" preserve="all" />
+  <assembly fullname="Runtime" preserve="all" />
+</linker>
