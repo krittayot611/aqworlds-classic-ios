@@ -1,0 +1,26 @@
+name: Experimental AIR bridge
+on:
+  push:
+    branches: [unstable/skua-script-runtime]
+    paths: ['native/SkuaGameBridge.as', 'experimental/SkuaMobile/AirChecks/**', 'experimental/SkuaMobile/run_air_bridge_check.py', '.github/workflows/skua-air-bridge.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dispatcher:
+    runs-on: macos-15-intel
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare AIR SDK
+        run: |
+          curl --fail --location --retry 2 'https://airsdk.wxlift.com/api/versions/51.3.4.2/sdks/AIRSDK_MacOS.zip?license=accepted' --output "$RUNNER_TEMP/air.zip"
+          mkdir -p "$RUNNER_TEMP/air-sdk"
+          unzip -q "$RUNNER_TEMP/air.zip" -d "$RUNNER_TEMP/air-sdk"
+      - name: Execute AIR dispatcher fixture
+        run: python3 experimental/SkuaMobile/run_air_bridge_check.py --sdk "$RUNNER_TEMP/air-sdk"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: air-bridge-fixture
+          path: output/bridge-check/
