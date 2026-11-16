@@ -6,9 +6,11 @@
     <SelfContained>true</SelfContained>
     <NativeLib>shared</NativeLib>
     <RunAOTCompilation>true</RunAOTCompilation>
-    <ForceFullAOT>false</ForceFullAOT>
-    <MonoForceInterpreter>true</MonoForceInterpreter>
-    <UseMonoJustInterp>true</UseMonoJustInterp>
+    <ForceFullAOT>true</ForceFullAOT>
+    <MonoForceInterpreter>false</MonoForceInterpreter>
+    <UseMonoJustInterp>false</UseMonoJustInterp>
+    <CustomRuntimeInitCallback>aqw_runtime_init</CustomRuntimeInitCallback>
+    <TrimMode>copy</TrimMode>
     <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -18,4 +20,9 @@
     <Compile Include="../Checks/BridgeChecks.cs" Link="BridgeChecks.cs" />
     <TrimmerRootDescriptor Include="Preserve.xml" />
   </ItemGroup>
+  <Target Name="AddInterpreterRuntimeInitializer" BeforeTargets="_BuildNativeLibrary">
+    <ItemGroup>
+      <_ExtraLibrarySources Include="$(MSBuildThisFileDirectory)RuntimeInit.c" />
+    </ItemGroup>
+  </Target>
 </Project>
