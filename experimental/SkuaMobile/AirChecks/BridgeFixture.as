@@ -7,14 +7,15 @@ package {
         private var checks:int;
         public function BridgeFixture() {
             try {
-                var world:Object = {strMapName:"battleon", health:42, names:["one","two"]};
-                world.jump = function(map:String):String { this.strMapName = map; return this.strMapName; };
+                var world:FixtureWorld = new FixtureWorld();
                 bridge = new SkuaGameBridge({world:world}, "fixture-session");
                 check(command("getGameObject", ["world.strMapName"]).result === '"battleon"', "JSON string result");
                 check(command("getGameObject", ["world.health"]).result === "42", "numeric result");
                 check(command("getGameObjectKey", ["world.names",1]).result === '"two"', "array key");
                 check(command("isNull", ["world.missing"]).result === "true", "missing property");
-                check(command("callGameFunction", ["world.jump","yulgar"]).result === '"yulgar"' && world.strMapName === "yulgar", "function owner and arguments");
+                var jump:Object = command("callGameFunction", ["world.jump","yulgar"]);
+                trace("AIR bridge function response: " + JSON.stringify(jump));
+                check(jump.result === '"yulgar"' && world.strMapName === "yulgar", "function owner and arguments");
                 check(!command("getGameObject", ["world.constructor"]).ok, "reserved path rejected");
                 check(!command("getGameObject", ["world[0]"]).ok, "invalid path rejected");
                 check(!command("unsupported", []).ok, "unsupported command reported");
@@ -42,5 +43,11 @@ package {
             if (!value) throw new Error(label);
             ++checks; trace("PASS AIR bridge: " + label);
         }
+    }
+    internal dynamic class FixtureWorld {
+        public var strMapName:String = "battleon";
+        public var health:int = 42;
+        public var names:Array = ["one", "two"];
+        public function jump(map:String):String { strMapName = map; return strMapName; }
     }
 }
