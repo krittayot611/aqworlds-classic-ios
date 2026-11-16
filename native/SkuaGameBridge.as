@@ -37,7 +37,8 @@ package {
                         var fnPath:Array = path(args[0]); var key:String = fnPath.pop();
                         var owner:* = resolve(fnPath);
                         if (owner == null || !(owner[key] is Function)) throw new Error("Game function is unavailable.");
-                        reply.result = encode(Function(owner[key]).apply(owner, args.slice(1))); break;
+                        var fn:Function = owner[key] as Function;
+                        reply.result = encode(fn.apply(owner, args.slice(1))); break;
                     default: throw new ArgumentError("Unsupported bridge method: " + r.method);
                 }
                 reply.ok = true;
