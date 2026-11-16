@@ -85,7 +85,7 @@ public sealed class AppDelegate : UIApplicationDelegate
             Window.MakeKeyAndVisible();
             RuntimeTrace.Note("Window visible; scheduling script check");
             var bundlePath = NSBundle.MainBundle.BundlePath;
-            _ = Task.Run(() =>
+            _ = Task.Run(async () =>
             {
                 string result;
                 try
@@ -109,7 +109,9 @@ public sealed class AppDelegate : UIApplicationDelegate
                     var output = new List<int>();
                     compiler.Execute(compiled, output);
                     if (!output.SequenceEqual([42])) throw new InvalidOperationException("Unexpected script result.");
-                    result = "PASS: compiled and executed imported C# on this iOS runtime.\nGame bridge not included.";
+                    RuntimeTrace.Note("Checking bridge command lifecycle on iOS");
+                    await BridgeChecks.Run();
+                    result = "PASS: imported C# execution and bridge mailbox checks passed on this iOS runtime.\nAIR transport and live game not included.";
                 }
                 catch (Exception e) { result = "FAIL: " + e; }
                 RuntimeTrace.Finish(result);
