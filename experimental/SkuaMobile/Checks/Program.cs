@@ -5,6 +5,7 @@ using System.Text.Json;
 var platformRefs = ((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!
     .Split(Path.PathSeparator);
 var compiler = new ScriptCompiler();
+if (args.Length == 0) await BridgeChecks.Run();
 if (args.Length > 0)
 {
     if (args.Length != 3) throw new ArgumentException("Expected: package-root assembly-directory entry-path");
