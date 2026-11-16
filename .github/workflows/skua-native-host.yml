@@ -19,6 +19,40 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Install Mono library toolchain
         run: dotnet workload install mobile-librarybuilder
+      # Native exports require full AOT wrappers; the custom initializer enables IL interpretation.
+      - name: Build interpreter-enabled native library
+        run: dotnet publish experimental/SkuaMobile/NativeHost -c Release -r iossimulator-arm64
+      - name: Build native simulator host
+        run: python3 experimental/SkuaMobile/NativeHost/build_smoke.py
+      - name: Execute imported C# from native entry
+        run: python3 experimental/SkuaMobile/run_ios_check.py --app experimental/SkuaMobile/NativeHost/smoke/AqwScriptRuntimeCheck.app
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-mono-host-diagnostics
+          path: runtime-diagnostics/
+          if-no-files-found: warn
+name: Experimental native Mono host
+on:
+  push:
+    branches: [unstable/skua-script-runtime]
+    paths: ['experimental/SkuaMobile/NativeHost/**', '.github/workflows/skua-native-host.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-host:
+    runs-on: macos-15
+    timeout-minutes: 25
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install Mono library toolchain
+        run: dotnet workload install mobile-librarybuilder
       - name: Build interpreter-enabled native library
         run: dotnet publish experimental/SkuaMobile/NativeHost -c Release -r iossimulator-arm64
       - name: Build native simulator host
