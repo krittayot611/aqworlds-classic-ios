@@ -8,7 +8,9 @@
 #include <mono/jit/jit.h>
 #include <mono/jit/mono-private-unstable.h>
 #include <mono/metadata/assembly.h>
-#include "library-builder.h"
+extern void register_aot_modules(void);
+extern void preload_assemblies_with_exported_symbols(void);
+extern void mono_register_resources_bundle(void);
 
 static pthread_once_t runtime_once = PTHREAD_ONCE_INIT;
 static void cleanup_config(MonovmRuntimeConfigArguments *args, void *data) {
