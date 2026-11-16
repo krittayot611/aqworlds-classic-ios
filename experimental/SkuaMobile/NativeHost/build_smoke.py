@@ -15,9 +15,10 @@ frameworks = out / 'Frameworks'
 frameworks.mkdir(parents=True, exist_ok=True)
 for source in lib.parent.glob('*.dylib'):
     shutil.copy2(source, frameworks / source.name)
-configs = list((root / 'obj/Release').rglob('runtimeconfig.bin'))
+configs = [p for base in (root / 'obj/Release', root / 'bin/Release')
+           for p in base.rglob('*runtimeconfig*.bin')]
 if not configs:
-    raise RuntimeError('Mono runtimeconfig.bin missing')
+    raise RuntimeError('Mono binary runtime configuration missing from both build and publish outputs')
 shutil.copy2(max(configs, key=lambda p: p.stat().st_mtime), frameworks / 'runtimeconfig.bin')
 subprocess.run(['install_name_tool', '-id', '@rpath/libAqwManagedHost.dylib', str(frameworks / lib.name)], check=True)
 metadata = out / 'metadata'
