@@ -11,6 +11,7 @@
     <UseMonoJustInterp>false</UseMonoJustInterp>
     <CustomRuntimeInitCallback>aqw_runtime_init</CustomRuntimeInitCallback>
     <TrimMode>copy</TrimMode>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
