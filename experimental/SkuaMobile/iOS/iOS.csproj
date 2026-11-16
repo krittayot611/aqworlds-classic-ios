@@ -12,6 +12,7 @@
     <Registrar>static</Registrar>
     <PublishAot>false</PublishAot>
     <TrimMode>copy</TrimMode>
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <EnableAssemblyILStripping>false</EnableAssemblyILStripping>
   </PropertyGroup>
   <ItemGroup>
