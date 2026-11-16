@@ -18,6 +18,7 @@ extern int aqw_host_run_check(const char *metadata, const char *documents);
     NSString *metadata = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"metadata"];
     NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        setenv("AQW_MONO_BUNDLE_PATH", [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks"].UTF8String, 1);
         int status = aqw_host_run_check(metadata.UTF8String, documents.UTF8String);
         NSString *result = [NSString stringWithContentsOfFile:[documents stringByAppendingPathComponent:@"runtime-result.txt"]
                                                    encoding:NSUTF8StringEncoding error:nil];
