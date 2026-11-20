@@ -8,6 +8,7 @@
 #include <mono/jit/jit.h>
 #include <mono/jit/mono-private-unstable.h>
 #include <mono/metadata/assembly.h>
+#include <mono/metadata/mono-gc.h>
 #include <mono/utils/mono-logger.h>
 extern void register_aot_modules(void);
 extern void preload_assemblies_with_exported_symbols(void);
