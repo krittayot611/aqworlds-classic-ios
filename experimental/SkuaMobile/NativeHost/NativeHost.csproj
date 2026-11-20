@@ -17,6 +17,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Keep native exports while marking AOT images compatible with interpreter fallback. -->
+    <MonoAOTCompilerDefaultAotArguments Include="interp" />
     <ProjectReference Include="../Runtime/Runtime.csproj" />
     <Compile Include="../Checks/BridgeChecks.cs" Link="BridgeChecks.cs" />
     <TrimmerRootDescriptor Include="Preserve.xml" />
