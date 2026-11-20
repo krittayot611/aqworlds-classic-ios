@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -125,6 +126,10 @@ def main() -> None:
         deadline = time.monotonic() + args.timeout
         previous = ""
         while not result.exists() and time.monotonic() < deadline:
+            try:
+                os.kill(app_pid, 0)
+            except ProcessLookupError:
+                raise RuntimeError("The simulator app exited before writing a result; inspect native logs and crash reports.")
             current = progress.read_text() if progress.exists() else ""
             if current != previous:
                 print(current[len(previous):], end="", flush=True)
