@@ -2,7 +2,7 @@ name: Experimental native Mono host
 on:
   push:
     branches: [unstable/skua-script-runtime]
-    paths: ['experimental/SkuaMobile/NativeHost/**', 'experimental/SkuaMobile/Runtime/**', 'experimental/SkuaMobile/Checks/**', 'experimental/SkuaMobile/run_ios_check.py', '.github/workflows/skua-native-host.yml']
+    paths: ['global.json', 'experimental/SkuaMobile/NativeHost/**', 'experimental/SkuaMobile/Runtime/**', 'experimental/SkuaMobile/Checks/**', 'experimental/SkuaMobile/run_ios_check.py', '.github/workflows/skua-native-host.yml']
   workflow_dispatch:
 permissions:
   contents: read
