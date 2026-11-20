@@ -107,7 +107,7 @@ def main() -> None:
         run("xcrun", "simctl", "install", device["udid"], str(app))
         container = Path(run("xcrun", "simctl", "get_app_container", device["udid"], BUNDLE, "data"))
         # A fresh result is required even if a developer reruns this check locally.
-        for name in ("runtime-result.txt", "runtime-progress.txt"):
+        for name in ("runtime-result.txt", "runtime-progress.txt", "runtime-native-stderr.txt", "runtime-native-stdout.txt"):
             (container / "Documents" / name).unlink(missing_ok=True)
         # This freshly installed CI app has no process to terminate. Avoid the
         # iOS 26 FrontBoard termination request before launching it directly.
@@ -149,7 +149,7 @@ def main() -> None:
         raise
     finally:
         if container is not None:
-            for name in ("runtime-progress.txt", "runtime-result.txt"):
+            for name in ("runtime-progress.txt", "runtime-result.txt", "runtime-native-stderr.txt", "runtime-native-stdout.txt"):
                 source = container / "Documents" / name
                 if source.exists():
                     shutil.copy2(source, output / name)
