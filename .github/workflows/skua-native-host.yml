@@ -2,14 +2,14 @@ name: Experimental native Mono host
 on:
   push:
     branches: [unstable/skua-script-runtime]
-    paths: ['experimental/SkuaMobile/NativeHost/**', '.github/workflows/skua-native-host.yml']
+    paths: ['experimental/SkuaMobile/NativeHost/**', 'experimental/SkuaMobile/Runtime/**', 'experimental/SkuaMobile/Checks/**', 'experimental/SkuaMobile/run_ios_check.py', '.github/workflows/skua-native-host.yml']
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  native-host:
+  build-native-host:
     runs-on: macos-15
-    timeout-minutes: 25
+    timeout-minutes: 20
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
     steps:
@@ -19,13 +19,36 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Install Mono library toolchain
         run: dotnet workload install mobile-librarybuilder
-      # Native exports require full AOT wrappers; the custom initializer enables IL interpretation.
       - name: Build interpreter-enabled native library
         run: dotnet publish experimental/SkuaMobile/NativeHost -c Release -r iossimulator-arm64
       - name: Build native simulator host
         run: python3 experimental/SkuaMobile/NativeHost/build_smoke.py
+      - name: Archive signed simulator app
+        run: ditto -c -k --keepParent experimental/SkuaMobile/NativeHost/smoke/AqwScriptRuntimeCheck.app "$RUNNER_TEMP/AqwNativeHostCheck.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-host-simulator-app
+          path: ${{ runner.temp }}/AqwNativeHostCheck.zip
+          retention-days: 7
+          compression-level: 0
+  native-host:
+    needs: build-native-host
+    runs-on: macos-15
+    timeout-minutes: 15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-host-simulator-app
+          path: ${{ runner.temp }}/native-host
+      - name: Restore signed simulator app
+        run: |
+          ditto -x -k "$RUNNER_TEMP/native-host/AqwNativeHostCheck.zip" "$RUNNER_TEMP/native-host"
+          codesign --verify --deep --strict "$RUNNER_TEMP/native-host/AqwScriptRuntimeCheck.app"
       - name: Execute imported C# from native entry
-        run: python3 experimental/SkuaMobile/run_ios_check.py --app experimental/SkuaMobile/NativeHost/smoke/AqwScriptRuntimeCheck.app
+        run: python3 experimental/SkuaMobile/run_ios_check.py --app "$RUNNER_TEMP/native-host/AqwScriptRuntimeCheck.app"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
