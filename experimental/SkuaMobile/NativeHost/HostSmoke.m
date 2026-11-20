@@ -1,4 +1,5 @@
 #import <UIKit/UIKit.h>
+#include <stdio.h>
 extern int aqw_host_run_check(const char *metadata, const char *documents);
 
 static void AQWNativeNote(NSString *message) {
@@ -27,6 +28,11 @@ static void AQWNativeNote(NSString *message) {
     NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         setenv("AQW_MONO_BUNDLE_PATH", [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks"].UTF8String, 1);
+        setenv("AQW_MONO_DIAGNOSTICS_PATH", documents.UTF8String, 1);
+        freopen([documents stringByAppendingPathComponent:@"runtime-native-stderr.txt"].UTF8String, "a", stderr);
+        freopen([documents stringByAppendingPathComponent:@"runtime-native-stdout.txt"].UTF8String, "a", stdout);
+        setvbuf(stderr, NULL, _IONBF, 0);
+        setvbuf(stdout, NULL, _IONBF, 0);
         AQWNativeNote(@"Calling managed export from native worker");
         int status = aqw_host_run_check(metadata.UTF8String, documents.UTF8String);
         AQWNativeNote([NSString stringWithFormat:@"Managed export returned %d", status]);
