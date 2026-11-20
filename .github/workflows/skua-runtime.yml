@@ -2,7 +2,7 @@ name: Experimental C# runtime
 on:
   push:
     branches: [unstable/skua-script-runtime]
-    paths: ['experimental/SkuaMobile/Runtime/**', 'experimental/SkuaMobile/Checks/**', 'experimental/SkuaMobile/iOS/**', 'experimental/SkuaMobile/run_ios_check.py', '.github/workflows/skua-runtime.yml']
+    paths: ['global.json', 'experimental/SkuaMobile/Runtime/**', 'experimental/SkuaMobile/Checks/**', 'experimental/SkuaMobile/iOS/**', 'experimental/SkuaMobile/run_ios_check.py', '.github/workflows/skua-runtime.yml']
   workflow_dispatch:
 permissions:
   contents: read
