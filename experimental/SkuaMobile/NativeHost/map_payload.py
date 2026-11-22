@@ -41,7 +41,12 @@ def stage_managed(rid, managed, metadata):
 
 def prepare(rid, dest):
     resources = dest / RESOURCES
-    product = stage_managed(rid, resources / "managed", resources / "metadata")
+    metadata = resources / "metadata"
+    product = stage_managed(rid, resources / "managed", metadata)
+    # Roslyn needs the public API built against the same .NET reference pack.
+    # The Mono implementation in managed/ has been relinked against private CoreLib.
+    host_api = ROOT / "bin/Release/net10.0" / rid / "ref/AqwManagedHost.dll"
+    shutil.copy2(host_api, metadata / host_api.name)
     scripts = resources / "scripts"
     scripts.mkdir(exist_ok=True)
     shutil.copy2(ROOT / "ReadMap.cs.txt", scripts / "ReadMap.cs")

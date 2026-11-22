@@ -22,8 +22,7 @@ internal static class MapHost
         {
             if (compiled is not null) return compiled;
             var script = new ScriptPackageReader(Path.Combine(root, "scripts")).Read("ReadMap.cs");
-            var refs = Directory.GetFiles(Path.Combine(root, "metadata"), "*.dll")
-                .Append(Path.Combine(root, "managed", "AqwManagedHost.dll"));
+            var refs = Directory.GetFiles(Path.Combine(root, "metadata"), "*.dll");
             var result = new ScriptCompiler().Compile(script, refs);
             if (!result.Success) throw new InvalidOperationException(string.Join('\n', result.Errors));
             return compiled = result;
