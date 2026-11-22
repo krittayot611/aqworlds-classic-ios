@@ -1,6 +1,7 @@
 // Original initializer for the experimental Mono library host.
 // Compiled native exports enter once; imported script IL uses Mono's interpreter.
 #include <stdbool.h>
+#include <glob.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,35 @@ static void mono_log(const char *domain, const char *level, const char *message,
 }
 
 static pthread_once_t runtime_once = PTHREAD_ONCE_INIT;
+static char *trusted_assemblies;
+static char *assembly_paths(const char *directory) {
+    size_t pattern_length = strlen(directory) + sizeof("/*.dll");
+    char *pattern = malloc(pattern_length);
+    if (!pattern) abort();
+    snprintf(pattern, pattern_length, "%s/*.dll", directory);
+    glob_t files = {0};
+    int status = glob(pattern, 0, NULL, &files);
+    free(pattern);
+    if (status || !files.gl_pathc) {
+        native_note("No managed assembly files available for startup resolution");
+        globfree(&files);
+        abort();
+    }
+    size_t length = 1;
+    for (size_t i = 0; i < files.gl_pathc; ++i) length += strlen(files.gl_pathv[i]) + 1;
+    char *paths = malloc(length);
+    if (!paths) abort();
+    char *cursor = paths;
+    for (size_t i = 0; i < files.gl_pathc; ++i) {
+        if (i) *cursor++ = ':';
+        size_t size = strlen(files.gl_pathv[i]);
+        memcpy(cursor, files.gl_pathv[i], size);
+        cursor += size;
+    }
+    *cursor = '\0';
+    globfree(&files);
+    return paths;
+}
 static void cleanup_config(MonovmRuntimeConfigArguments *args, void *data) {
     free((void *)args->runtimeconfig.name.path);
     free(args);
@@ -46,8 +76,12 @@ static void initialize_once(void) {
     native_note("Registering AOT modules");
     register_aot_modules();
     native_note("Loading managed assemblies from disk (resource bundle disabled)");
-    const char *keys[] = {"RUNTIME_IDENTIFIER", "APP_CONTEXT_BASE_DIRECTORY"};
-    const char *values[] = {"iossimulator-arm64", location};
+    // CoreLib's AOT dependencies must resolve before managed AssemblyLoadContext exists.
+    // Keep these paths alive for the runtime's lifetime.
+    trusted_assemblies = assembly_paths(location);
+    const char *keys[] = {"RUNTIME_IDENTIFIER", "APP_CONTEXT_BASE_DIRECTORY",
+                          "TRUSTED_PLATFORM_ASSEMBLIES", "APP_PATHS", "NATIVE_DLL_SEARCH_DIRECTORIES"};
+    const char *values[] = {"iossimulator-arm64", location, trusted_assemblies, location, location};
     size_t length = strlen(location) + sizeof("/runtimeconfig.bin");
     char *path = malloc(length);
     MonovmRuntimeConfigArguments *config = calloc(1, sizeof(*config));
@@ -58,7 +92,7 @@ static void initialize_once(void) {
     native_note("Initializing runtime configuration");
     monovm_runtimeconfig_initialize(config, cleanup_config, NULL);
     native_note("Initializing application context");
-    monovm_initialize(2, keys, values);
+    monovm_initialize(sizeof(keys) / sizeof(keys[0]), keys, values);
     mono_set_assemblies_path(location);
     mono_jit_set_aot_mode(MONO_AOT_MODE_INTERP);
     mono_set_signal_chaining(true);
