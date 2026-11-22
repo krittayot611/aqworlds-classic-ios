@@ -15,6 +15,12 @@ frameworks = out / 'Frameworks'
 frameworks.mkdir(parents=True, exist_ok=True)
 for source in lib.parent.glob('*.dylib'):
     shutil.copy2(source, frameworks / source.name)
+managed = root / 'obj/host-managed/iossimulator-arm64'
+for name in ('System.Private.CoreLib.dll', 'AqwManagedHost.dll', 'Runtime.dll'):
+    if not (managed / name).is_file():
+        raise RuntimeError(f'Missing staged runtime assembly: {managed / name}')
+for source in managed.glob('*.dll'):
+    shutil.copy2(source, frameworks / source.name)
 configs = [p for base in (root / 'obj/Release', root / 'bin/Release')
            for p in base.rglob('*runtimeconfig*.bin')]
 if not configs:
