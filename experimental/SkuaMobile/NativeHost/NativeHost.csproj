@@ -28,6 +28,7 @@
   <Target Name="AddInterpreterRuntimeInitializer" BeforeTargets="_BuildNativeLibrary">
     <ItemGroup>
       <_ExtraLibrarySources Include="$(MSBuildThisFileDirectory)RuntimeInit.c" />
+      <_ExtraLinkerArgs Include="-Wl,-exported_symbols_list,&quot;$(MSBuildThisFileDirectory)runtime-exports.txt&quot;" />
     </ItemGroup>
   </Target>
   <Target Name="StageNativeHostAssemblies" AfterTargets="_BuildNativeLibrary">

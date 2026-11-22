@@ -1,6 +1,7 @@
 // Original initializer for the experimental Mono library host.
 // Compiled native exports enter once; imported script IL uses Mono's interpreter.
 #include <stdbool.h>
+#include <dlfcn.h>
 #include <glob.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -35,6 +36,23 @@ static void mono_log(const char *domain, const char *level, const char *message,
 
 static pthread_once_t runtime_once = PTHREAD_ONCE_INIT;
 static char *trusted_assemblies;
+static char pinvoke_override[2 + 2 * sizeof(void *) + 1];
+
+// LibraryBuilder links these .NET shims into this image as static archives.
+// Mono still requests them by library name when running managed wrappers.
+static void *resolve_static_pinvoke(const char *library, const char *entrypoint) {
+    static const char *const shims[] = {
+        "System.Native", "System.Globalization.Native", "System.IO.Compression.Native",
+        "System.Net.Security.Native", "System.Security.Cryptography.Native.Apple",
+        "brotlienc", "brotlidec"
+    };
+    const char *name = strncmp(library, "lib", 3) == 0 ? library + 3 : library;
+    for (size_t i = 0; i < sizeof(shims) / sizeof(shims[0]); ++i) {
+        if (strcmp(name, shims[i]) == 0) return dlsym(RTLD_SELF, entrypoint);
+    }
+    return NULL;
+}
+
 static char *assembly_paths(const char *directory) {
     size_t pattern_length = strlen(directory) + sizeof("/*.dll");
     char *pattern = malloc(pattern_length);
@@ -79,9 +97,12 @@ static void initialize_once(void) {
     // CoreLib's AOT dependencies must resolve before managed AssemblyLoadContext exists.
     // Keep these paths alive for the runtime's lifetime.
     trusted_assemblies = assembly_paths(location);
+    snprintf(pinvoke_override, sizeof(pinvoke_override), "%p", (void *)resolve_static_pinvoke);
     const char *keys[] = {"RUNTIME_IDENTIFIER", "APP_CONTEXT_BASE_DIRECTORY",
-                          "TRUSTED_PLATFORM_ASSEMBLIES", "APP_PATHS", "NATIVE_DLL_SEARCH_DIRECTORIES"};
-    const char *values[] = {"iossimulator-arm64", location, trusted_assemblies, location, location};
+                          "TRUSTED_PLATFORM_ASSEMBLIES", "APP_PATHS", "NATIVE_DLL_SEARCH_DIRECTORIES",
+                          "PINVOKE_OVERRIDE"};
+    const char *values[] = {"iossimulator-arm64", location, trusted_assemblies, location, location,
+                            pinvoke_override};
     size_t length = strlen(location) + sizeof("/runtimeconfig.bin");
     char *path = malloc(length);
     MonovmRuntimeConfigArguments *config = calloc(1, sizeof(*config));

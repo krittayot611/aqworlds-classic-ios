@@ -1,0 +1,7 @@
+_SystemNative_*
+_GlobalizationNative_*
+_CompressionNative_*
+_NetSecurityNative_*
+_AppleCryptoNative_*
+_BrotliEncoder*
+_BrotliDecoder*

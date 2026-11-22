@@ -18,6 +18,9 @@ internal static class Program
             Directory.CreateDirectory(documents);
             void Note(string line) => File.AppendAllText(Path.Combine(documents, "runtime-progress.txt"), line + "\n");
             Note("Native host entered managed export; no managed UIApplicationMain.");
+            var culture = System.Globalization.CultureInfo.GetCultureInfo("th-TH");
+            if (culture.Name != "th-TH") throw new InvalidOperationException("Native culture lookup failed.");
+            Note("Native file and globalization calls passed.");
             BridgeChecks.Run().GetAwaiter().GetResult();
             Note("Bridge mailbox checks passed in native host.");
             var root = Path.Combine(documents, "NativeHostCheck");
