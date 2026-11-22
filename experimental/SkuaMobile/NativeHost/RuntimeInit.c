@@ -12,7 +12,6 @@
 #include <mono/utils/mono-logger.h>
 extern void register_aot_modules(void);
 extern void preload_assemblies_with_exported_symbols(void);
-extern void mono_register_resources_bundle(void);
 
 static void native_note(const char *message) {
     const char *documents = getenv("AQW_MONO_DIAGNOSTICS_PATH");
@@ -41,11 +40,12 @@ static void cleanup_config(MonovmRuntimeConfigArguments *args, void *data) {
 static void initialize_once(void) {
     const char *location = getenv("AQW_MONO_BUNDLE_PATH");
     if (!location || !*location) { fprintf(stderr, "AQW Mono bundle path missing\n"); abort(); }
+    setenv("MONO_LOG_LEVEL", "debug", 1);
+    setenv("MONO_LOG_MASK", "asm", 1);
     mono_trace_set_log_handler(mono_log, NULL);
     native_note("Registering AOT modules");
     register_aot_modules();
-    native_note("Registering bundled resources");
-    mono_register_resources_bundle();
+    native_note("Loading managed assemblies from disk (resource bundle disabled)");
     const char *keys[] = {"RUNTIME_IDENTIFIER", "APP_CONTEXT_BASE_DIRECTORY"};
     const char *values[] = {"iossimulator-arm64", location};
     size_t length = strlen(location) + sizeof("/runtimeconfig.bin");
