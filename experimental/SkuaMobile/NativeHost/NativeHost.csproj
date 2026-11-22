@@ -5,6 +5,8 @@
     <AssemblyName>AqwManagedHost</AssemblyName>
     <SelfContained>true</SelfContained>
     <NativeLib>shared</NativeLib>
+    <!-- Load assembly files directly; avoid the bundled-resource resolver seen in the startup crash. -->
+    <BundlesResources>false</BundlesResources>
     <RunAOTCompilation>true</RunAOTCompilation>
     <ForceFullAOT>true</ForceFullAOT>
     <MonoForceInterpreter>false</MonoForceInterpreter>
@@ -27,5 +29,9 @@
     <ItemGroup>
       <_ExtraLibrarySources Include="$(MSBuildThisFileDirectory)RuntimeInit.c" />
     </ItemGroup>
+  </Target>
+  <Target Name="StageNativeHostAssemblies" AfterTargets="_BuildNativeLibrary">
+    <Copy SourceFiles="@(_AssembliesToBundleInternal)"
+          DestinationFolder="$(MSBuildProjectDirectory)/obj/host-managed/$(RuntimeIdentifier)" />
   </Target>
 </Project>
