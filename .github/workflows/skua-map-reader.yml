@@ -1,0 +1,97 @@
+name: AIR map reader for iPhone
+on:
+  push:
+    branches: ['unstable/**']
+    paths:
+      - '.github/workflows/skua-map-reader.yml'
+      - 'experimental/SkuaMobile/NativeHost/**'
+      - 'experimental/SkuaMobile/Runtime/**'
+      - 'experimental/SkuaMobile/Checks/**'
+      - 'native/**'
+      - 'Main.as'
+      - 'MapRegression.as'
+      - 'Probe-app.xml'
+      - 'native_smoke.py'
+      - 'cloud_build.py'
+      - 'build*.py'
+      - 'global.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
+jobs:
+  runtime:
+    runs-on: macos-15
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [iossimulator-arm64, ios-arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet workload install mobile-librarybuilder
+      - name: Publish and package Mono for ${{ matrix.rid }}
+        env:
+          RID: ${{ matrix.rid }}
+        run: |
+          dotnet publish experimental/SkuaMobile/NativeHost -c Release -r "$RID"
+          python3 experimental/SkuaMobile/NativeHost/map_payload.py "$RID" "$RUNNER_TEMP/payload"
+          ditto -c -k "$RUNNER_TEMP/payload" "$RUNNER_TEMP/$RID.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.rid }}
+          path: ${{ runner.temp }}/${{ matrix.rid }}.zip
+          compression-level: 0
+          retention-days: 3
+  game:
+    needs: runtime
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare AIR SDK
+        run: |
+          curl --fail --location --retry 2 --connect-timeout 20 --max-time 300 \
+            'https://airsdk.wxlift.com/api/versions/51.3.4.2/sdks/AIRSDK_MacOS.zip?license=accepted' \
+            -o "$RUNNER_TEMP/air.zip"
+          mkdir -p "$RUNNER_TEMP/air"
+          unzip -q "$RUNNER_TEMP/air.zip" -d "$RUNNER_TEMP/air"
+          cp adt.cfg "$RUNNER_TEMP/air/lib/adt.cfg"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: runtime-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/payloads
+      - name: Read the map through C# in the AIR game app
+        run: |
+          ditto -x -k "$RUNNER_TEMP/payloads/iossimulator-arm64.zip" "$RUNNER_TEMP/simulator"
+          python3 build.py --sdk "$RUNNER_TEMP/air"
+          python3 native_smoke.py --sdk "$RUNNER_TEMP/air" --map-runtime "$RUNNER_TEMP/simulator"
+      - name: Package the device IPA
+        run: |
+          ditto -x -k "$RUNNER_TEMP/payloads/ios-arm64.zip" "$RUNNER_TEMP/device"
+          python3 cloud_build.py --sdk "$RUNNER_TEMP/air" --map-runtime "$RUNNER_TEMP/device"
+          cd output
+          shasum -a 256 *-unstable.ipa > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AQWorlds-Classic-map-reader-unstable
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            output/*-unstable.ipa
+            output/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: map-reader-simulator-results
+          path: output/native/
+          if-no-files-found: ignore
