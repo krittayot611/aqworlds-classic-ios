@@ -21,6 +21,12 @@ package {
                 if (game == null) throw new Error("Game detached.");
                 var args:Array = r.args; var value:*;
                 switch (r.method) {
+                    case "currentMap":
+                        count(args, 0);
+                        var world:Object = ("world" in game) ? game["world"] : null;
+                        var map:* = world != null && ("strMapName" in world) ? world["strMapName"] : null;
+                        reply.result = encode(map is String && map.length > 0 ? map : null);
+                        break;
                     case "getGameObject":
                         count(args, 1); reply.result = encode(resolve(path(args[0]))); break;
                     case "getGameObjectKey":

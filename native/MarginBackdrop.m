@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <string.h>
 #import "FlashRuntimeExtensions.h"
+#import "MapReader.h"
 
 // A native view paints only the physical gutters outside AIR's SHOW_ALL canvas.
 // It never changes the AIR view, game transforms, Stage coordinates or hit tests.
@@ -117,10 +118,20 @@ static FREObject AQWShowMargins(FREContext context, void *data, uint32_t argc, F
 }
 static void AQWContextInitializer(void *data, const uint8_t *type, FREContext context,
                                   uint32_t *count, const FRENamedFunction **functions) {
+    if (type && strcmp((const char *)type, "current-map") == 0) {
+        AQWMapContextOpen(context, count, functions);
+        return;
+    }
+    FRESetContextNativeData(context, NULL);
     static FRENamedFunction entries[] = {{(const uint8_t *)"show", NULL, &AQWShowMargins}};
     *count = 1; *functions = entries;
 }
 static void AQWContextFinalizer(FREContext context) {
+    void *state = NULL;
+    if (FREGetContextNativeData(context, &state) == FRE_OK && state) {
+        AQWMapContextClose(state);
+        return;
+    }
     dispatch_async(dispatch_get_main_queue(), ^{ [backdrop removeFromSuperview]; backdrop = nil; });
 }
 __attribute__((visibility("default")))
