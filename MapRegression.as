@@ -2,12 +2,42 @@ package {
     import flash.display.Bitmap;
     import flash.display.MovieClip;
     import flash.display.StageScaleMode;
+    import flash.filesystem.File;
+    import flash.filesystem.FileMode;
+    import flash.filesystem.FileStream;
     import flash.geom.Point;
     import flash.system.ApplicationDomain;
     import flash.utils.Timer;
 
     // Run only by the release smoke check; never creates a game session.
     public final class MapRegression {
+        // Read the attached client first. Exercise two distinct names and logout
+        // with a local world so CI never changes an account or joins a server.
+        public static function checkReader(live:CurrentMapReader, config:File, note:Function):void {
+            var input:FileStream = new FileStream();
+            input.open(config, FileMode.READ);
+            var names:Array;
+            try { names = JSON.parse(input.readUTFBytes(input.bytesAvailable)) as Array; }
+            finally { input.close(); }
+            if (!names || names.length != 2 || names[0] == names[1]) throw new Error("Invalid map test data.");
+            live.read(function(initial:String, failure:String):void {
+                if (failure != null) { note("MAP_ERROR " + failure); return; }
+                note("MAP_LIVE " + JSON.stringify(initial));
+                var fixture:Object = {world:{strMapName:names[0]}};
+                var reader:CurrentMapReader = new CurrentMapReader(function():Object { return fixture; });
+                var index:int = 0;
+                function received(map:String, error:String):void {
+                    if (error != null) { note("MAP_ERROR " + error); reader.dispose(); return; }
+                    note("MAP_SAMPLE " + JSON.stringify(map));
+                    ++index;
+                    if (index == 3) { reader.dispose(); return; }
+                    fixture.world = index == 1 ? {strMapName:names[1]} : null;
+                    reader.read(received);
+                }
+                reader.read(received);
+            });
+        }
+
         public static function run(game:MovieClip):Object {
             if (game.stage.scaleMode != StageScaleMode.SHOW_ALL ||
                 game.stage.stageWidth != 960 || game.stage.stageHeight != 550 ||

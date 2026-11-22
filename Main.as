@@ -32,6 +32,7 @@ package {
 
     [SWF(width="960", height="550", frameRate="30", backgroundColor="#101820")]
     public class Main extends Sprite {
+        private var mapReader:CurrentMapReader;
         private var skuaBridge:SkuaGameBridge;
         public function attachSkuaBridge(session:String):void {
             if (gameClient == null) throw new Error("The game has not loaded yet.");
@@ -112,7 +113,7 @@ package {
             gameLoader.contentLoaderInfo.addEventListener(
                 SecurityErrorEvent.SECURITY_ERROR, onLoadError
             );
-            writeStartup("Touch client 0.1.9: loading screen ready");
+            writeStartup("Touch client 0.1.10: loading screen ready");
             try {
                 centerStage();
                 stage.addEventListener(Event.RESIZE, centerStage);
@@ -333,6 +334,7 @@ package {
                 gameClient = game;
                 centerStage();
                 panel.visible = false;
+                showMapReader();
                 loadPhase = "game running";
                 writeStartup("Game client attached; login and gameplay remain unverified");
                 writeStartup("Viewport centred: align=" + stage.align + "; scale=" + stage.scaleMode);
@@ -342,6 +344,22 @@ package {
                 if (smokeAssetFile != null) checkExternalAssets();
             } catch (error:Error) {
                 showFailure(error.name + " " + error.errorID + "\n" + error.message);
+            }
+        }
+
+        private function showMapReader():void {
+            var assets:File = File.applicationDirectory;
+            if (!assets.resolvePath("AqwMapRuntime/scripts/ReadMap.cs").exists) return;
+            try {
+                if (mapReader == null) {
+                    mapReader = new CurrentMapReader(function():Object { return gameClient; });
+                    mapReader.x = 798; mapReader.y = 8;
+                    addChild(mapReader);
+                }
+                var check:File = assets.resolvePath("aqw-map-check.json");
+                if (check.exists) MapRegression.checkReader(mapReader, check, writeStartup);
+            } catch (error:Error) {
+                writeStartup("Map reader unavailable: " + error.message);
             }
         }
 

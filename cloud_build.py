@@ -69,6 +69,7 @@ def prepare_packaging_identity(directory, password):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sdk", type=Path, required=True)
+    parser.add_argument("--map-runtime", type=Path, help="Embed the ARM64 iPhone map-reader payload")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent
     sdk = args.sdk.resolve()
@@ -78,7 +79,8 @@ def main():
     output = root / "output"
     output.mkdir(exist_ok=True)
     version = ET.parse(root / "build/Probe-app.xml").find("{*}versionNumber").text
-    final_ipa = output / ("AQWorlds-Classic-" + version + ".ipa")
+    suffix = "-unstable" if args.map_runtime else ""
+    final_ipa = output / ("AQWorlds-Classic-" + version + suffix + ".ipa")
     final_ipa.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix="aqw-packaging-") as temp:
         directory = Path(temp)
@@ -111,6 +113,9 @@ def main():
         if info["CFBundleDisplayName"] != "AQWorlds Classic":
             raise RuntimeError("The packaged display name is incorrect.")
         executable = app / info["CFBundleExecutable"]
+        if args.map_runtime:
+            from experimental.SkuaMobile.NativeHost.map_payload import embed
+            embed(args.map_runtime, app, simulator=False)
         architectures = subprocess.check_output(["lipo", "-archs", str(executable)], text=True)
         if "arm64" not in architectures.split():
             raise RuntimeError("The packaged executable must support arm64 iPhones.")

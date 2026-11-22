@@ -12,6 +12,17 @@ def run(*args):
     subprocess.run([str(a) for a in args], check=True)
 
 
+def compile_archive(root, sdk, system_sdk, target, directory, archive):
+    objects = []
+    for name in ('MarginBackdrop', 'MapReader'):
+        obj = directory / f'{name}-{target}.o'
+        run('xcrun', 'clang', '-target', target, '-isysroot', system_sdk,
+            '-fobjc-arc', '-fmodules', '-I', sdk / 'include', '-c',
+            root / 'native' / (name + '.m'), '-o', obj)
+        objects.append(obj)
+    run('xcrun', 'libtool', '-static', '-o', directory / archive, *objects)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sdk', required=True, type=Path)
@@ -41,16 +52,11 @@ def main():
         directory.mkdir(exist_ok=True)
         shutil.copy2(default / 'library.swf', directory / 'library.swf')
         system_sdk = subprocess.check_output(['xcrun', '--sdk', sdk_name, '--show-sdk-path'], text=True).strip()
-        run('xcrun', 'clang', '-target', target, '-isysroot', system_sdk,
-            '-fobjc-arc', '-fmodules', '-I', sdk / 'include', '-c', root / 'native/MarginBackdrop.m',
-            '-o', directory / 'Margins.o')
-        run('xcrun', 'libtool', '-static', '-o', directory / 'libAQWMargins.a', directory / 'Margins.o')
+        compile_archive(root, sdk, system_sdk, target, directory, 'libAQWMargins.a')
         if platform == 'iPhone-x86':
             # Current AIR simulator runtimes contain both Intel and Apple Silicon slices.
-            run('xcrun', 'clang', '-target', 'arm64-apple-ios14.0-simulator', '-isysroot', system_sdk,
-                '-fobjc-arc', '-fmodules', '-I', sdk / 'include', '-c', root / 'native/MarginBackdrop.m',
-                '-o', directory / 'Margins-arm64.o')
-            run('xcrun', 'libtool', '-static', '-o', directory / 'libAQWMargins-arm64.a', directory / 'Margins-arm64.o')
+            compile_archive(root, sdk, system_sdk, 'arm64-apple-ios14.0-simulator',
+                            directory, 'libAQWMargins-arm64.a')
             run('xcrun', 'lipo', '-create', directory / 'libAQWMargins.a', directory / 'libAQWMargins-arm64.a',
                 '-output', directory / 'libAQWMargins-universal.a')
             (directory / 'libAQWMargins-universal.a').replace(directory / 'libAQWMargins.a')
