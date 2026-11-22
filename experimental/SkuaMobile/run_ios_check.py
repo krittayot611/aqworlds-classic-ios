@@ -54,6 +54,20 @@ def boot_device(device: dict, run) -> dict:
         return fresh
 
 
+def simulator_inventory(run) -> tuple[dict, dict]:
+    """CoreSimulator may time out on its first request on a fresh CI runner."""
+    for attempt in range(2):
+        try:
+            runtimes = json.loads(run("xcrun", "simctl", "list", "runtimes", "-j"))
+            devices = json.loads(run("xcrun", "simctl", "list", "devices", "available", "-j"))
+            return runtimes, devices
+        except subprocess.TimeoutExpired:
+            if attempt:
+                raise
+            print("Simulator inventory timed out; retrying discovery once.", flush=True)
+    raise AssertionError("Unreachable inventory retry state")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app", required=True, type=Path)
@@ -94,8 +108,7 @@ def main() -> None:
 
     try:
         sdk = run("xcrun", "--sdk", "iphonesimulator", "--show-sdk-version")
-        runtime_inventory = json.loads(run("xcrun", "simctl", "list", "runtimes", "-j"))
-        device_inventory = json.loads(run("xcrun", "simctl", "list", "devices", "available", "-j"))
+        runtime_inventory, device_inventory = simulator_inventory(run)
         (output / "simulator-inventory.json").write_text(json.dumps({
             "sdk": sdk, "runtimes": runtime_inventory, "devices": device_inventory,
         }, indent=2))
