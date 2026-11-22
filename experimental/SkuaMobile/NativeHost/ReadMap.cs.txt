@@ -1,0 +1,4 @@
+public sealed class ReadMap
+{
+    public void ScriptMain(MapReadout game) => game.Show(game.CurrentMap);
+}

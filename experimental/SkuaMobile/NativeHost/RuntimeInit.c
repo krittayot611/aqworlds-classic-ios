@@ -1,6 +1,7 @@
 // Original initializer for the experimental Mono library host.
 // Compiled native exports enter once; imported script IL uses Mono's interpreter.
 #include <stdbool.h>
+#include <TargetConditionals.h>
 #include <dlfcn.h>
 #include <glob.h>
 #include <pthread.h>
@@ -88,8 +89,10 @@ static void cleanup_config(MonovmRuntimeConfigArguments *args, void *data) {
 static void initialize_once(void) {
     const char *location = getenv("AQW_MONO_BUNDLE_PATH");
     if (!location || !*location) { fprintf(stderr, "AQW Mono bundle path missing\n"); abort(); }
-    setenv("MONO_LOG_LEVEL", "debug", 1);
-    setenv("MONO_LOG_MASK", "asm", 1);
+    if (getenv("AQW_MONO_DIAGNOSTICS_PATH")) {
+        setenv("MONO_LOG_LEVEL", "debug", 1);
+        setenv("MONO_LOG_MASK", "asm", 1);
+    }
     mono_trace_set_log_handler(mono_log, NULL);
     native_note("Registering AOT modules");
     register_aot_modules();
@@ -101,7 +104,14 @@ static void initialize_once(void) {
     const char *keys[] = {"RUNTIME_IDENTIFIER", "APP_CONTEXT_BASE_DIRECTORY",
                           "TRUSTED_PLATFORM_ASSEMBLIES", "APP_PATHS", "NATIVE_DLL_SEARCH_DIRECTORIES",
                           "PINVOKE_OVERRIDE"};
-    const char *values[] = {"iossimulator-arm64", location, trusted_assemblies, location, location,
+#if TARGET_OS_SIMULATOR && defined(__x86_64__)
+    const char *rid = "iossimulator-x64";
+#elif TARGET_OS_SIMULATOR
+    const char *rid = "iossimulator-arm64";
+#else
+    const char *rid = "ios-arm64";
+#endif
+    const char *values[] = {rid, location, trusted_assemblies, location, location,
                             pinvoke_override};
     size_t length = strlen(location) + sizeof("/runtimeconfig.bin");
     char *path = malloc(length);

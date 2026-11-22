@@ -3,38 +3,15 @@ from pathlib import Path
 import plistlib
 import shutil
 import subprocess
-import os
+from map_payload import stage_managed
 
 root = Path(__file__).resolve().parent
-libs = list((root / 'bin/Release').rglob('libAqwManagedHost.dylib'))
-if not libs:
-    raise RuntimeError('Mono LibraryBuilder did not produce libAqwManagedHost.dylib')
-lib = max(libs, key=lambda p: p.stat().st_mtime)
 out = root / 'smoke/AqwScriptRuntimeCheck.app'
 frameworks = out / 'Frameworks'
-frameworks.mkdir(parents=True, exist_ok=True)
+lib = stage_managed('iossimulator-arm64', frameworks, out / 'metadata')
 for source in lib.parent.glob('*.dylib'):
     shutil.copy2(source, frameworks / source.name)
-managed = root / 'obj/host-managed/iossimulator-arm64'
-for name in ('System.Private.CoreLib.dll', 'AqwManagedHost.dll', 'Runtime.dll'):
-    if not (managed / name).is_file():
-        raise RuntimeError(f'Missing staged runtime assembly: {managed / name}')
-for source in managed.glob('*.dll'):
-    shutil.copy2(source, frameworks / source.name)
-configs = [p for base in (root / 'obj/Release', root / 'bin/Release')
-           for p in base.rglob('*runtimeconfig*.bin')]
-if not configs:
-    raise RuntimeError('Mono binary runtime configuration missing from both build and publish outputs')
-shutil.copy2(max(configs, key=lambda p: p.stat().st_mtime), frameworks / 'runtimeconfig.bin')
 subprocess.run(['install_name_tool', '-id', '@rpath/libAqwManagedHost.dylib', str(frameworks / lib.name)], check=True)
-metadata = out / 'metadata'
-metadata.mkdir(exist_ok=True)
-ref_root = Path(os.environ['DOTNET_ROOT']) / 'packs/Microsoft.NETCore.App.Ref'
-refs = sorted(ref_root.glob('10.*/ref/net10.0'), key=lambda p: tuple(map(int, p.parents[1].name.split('.'))))
-if not refs:
-    raise RuntimeError('No .NET 10 reference metadata found')
-for source in refs[-1].glob('*.dll'):
-    shutil.copy2(source, metadata / source.name)
 sdk = subprocess.check_output(['xcrun', '--sdk', 'iphonesimulator', '--show-sdk-path'], text=True).strip()
 subprocess.run(['xcrun', 'clang', '-arch', 'arm64', '-isysroot', sdk, '-mios-simulator-version-min=15.0',
                 '-fobjc-arc', str(root / 'HostSmoke.m'), '-L' + str(frameworks), '-lAqwManagedHost',

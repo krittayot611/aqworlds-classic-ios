@@ -12,6 +12,7 @@
     <MonoForceInterpreter>false</MonoForceInterpreter>
     <UseMonoJustInterp>false</UseMonoJustInterp>
     <CustomRuntimeInitCallback>aqw_runtime_init</CustomRuntimeInitCallback>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TrimMode>copy</TrimMode>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
