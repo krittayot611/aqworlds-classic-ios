@@ -13,7 +13,7 @@ An unofficial iOS and iPadOS client for AQWorlds Classic.
 | Channel | Version | IPA |
 | --- | --- | --- |
 | Stable | 0.1.9 | [Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.9/AQWorlds-Classic-0.1.9.ipa) |
-| Unstable | 0.1.10 | [Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.10-unstable/AQWorlds-Classic-0.1.10-unstable.ipa) |
+| Unstable | 0.1.11 | [Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.11-unstable/AQWorlds-Classic-0.1.11-unstable.ipa) |
 
 **Stable** — The full release for iPhone and iPad.
 
