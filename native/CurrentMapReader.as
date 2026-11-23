@@ -8,6 +8,8 @@ package {
     import flash.external.ExtensionContext;
     import flash.text.TextField;
     import flash.text.TextFormat;
+    import flash.events.TimerEvent;
+    import flash.utils.Timer;
 
     public final class CurrentMapReader extends Sprite {
         private var context:ExtensionContext;
@@ -15,6 +17,9 @@ package {
         private var label:TextField = new TextField();
         private var done:Function;
         private var rotation:SkuaRotation;
+        private var bag:SkillBag = new SkillBag();
+        private var poll:Timer = new Timer(1250);
+        private var lastBag:String;
         private var foreground:Boolean = true;
 
         public function CurrentMapReader(currentGame:Function) {
@@ -50,26 +55,45 @@ package {
             if (!rotation) {
                 rotation = new SkuaRotation(game, function(text:String, active:Boolean):void {
                     context.call("updateTools", "state", text, active);
-                });
+                },bag);
+                poll.addEventListener(TimerEvent.TIMER, refreshBag);
+                poll.start();
                 NativeApplication.nativeApplication.addEventListener(Event.DEACTIVATE, onBackground);
                 NativeApplication.nativeApplication.addEventListener(Event.ACTIVATE, onForeground);
             }
-            return context.call("showTools", verify) === true;
+            var shown:Boolean = context.call("showTools", verify) === true;
+            if (shown) refreshBag();
+            return shown;
         }
 
         private function onBackground(event:Event):void {
             foreground = false;
+            poll.stop();
             if (rotation && rotation.running) rotation.stop("Stopped · app in background");
         }
 
-        private function onForeground(event:Event):void { foreground = true; }
+        private function onForeground(event:Event):void {
+            foreground = true; poll.start(); refreshBag();
+        }
+        private function refreshBag(event:TimerEvent = null):void {
+            if (!foreground || !context) return;
+            var info:Object;
+            try { info = bag.snapshot(game()); }
+            catch (error:Error) { info = bag.snapshot(null); }
+            var payload:String = JSON.stringify(info);
+            if (payload !== lastBag) {
+                context.call("updateTools","bag",payload,false);
+                lastBag = payload;
+            }
+        }
 
         private function botCommand(message:String):void {
             if (!rotation) return;
             try {
                 var request:Object = JSON.parse(message);
                 if (request.action == "start" && !foreground) rotation.stop("Stopped · app in background");
-                else if (request.action == "start") rotation.start(request.slots as Array,request["auto"] === true);
+                else if (request.action == "start") rotation.start(request.steps as Array,request["auto"] === true,request.classId,uint(request.session));
+                else if (request.action == "bag") { lastBag = null; refreshBag(); }
                 else if (request.action == "stop") rotation.stop();
                 else if (request.action == "map" && done == null) {
                     read(function(map:String, error:String):void {
@@ -116,6 +140,7 @@ package {
             removeEventListener(MouseEvent.CLICK, onTap);
             NativeApplication.nativeApplication.removeEventListener(Event.DEACTIVATE,onBackground);
             NativeApplication.nativeApplication.removeEventListener(Event.ACTIVATE,onForeground);
+            poll.stop(); poll.removeEventListener(TimerEvent.TIMER,refreshBag);
             if (rotation) { rotation.dispose(); rotation = null; }
             if (context != null) {
                 context.removeEventListener(StatusEvent.STATUS, onStatus);

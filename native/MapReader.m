@@ -26,12 +26,14 @@ static AQWMapSession *sessionFor(FREContext context) {
     return (__bridge AQWMapSession *)state;
 }
 
-static NSString *stringArgument(FREObject value) {
+static NSString *limitedString(FREObject value, uint32_t limit) {
     uint32_t length = 0;
     const uint8_t *bytes = NULL;
-    if (FREGetObjectAsUTF8(value, &length, &bytes) != FRE_OK || length > 8192) return nil;
+    if (FREGetObjectAsUTF8(value, &length, &bytes) != FRE_OK || length > limit) return nil;
     return [[NSString alloc] initWithBytes:bytes length:length encoding:NSUTF8StringEncoding];
 }
+
+static NSString *stringArgument(FREObject value) { return limitedString(value,8192); }
 
 static FREResult post(AQWMapSession *session, const char *code, NSString *text) {
     return FREDispatchStatusEventAsync(session.context, (const uint8_t *)code,
@@ -140,9 +142,8 @@ static FREObject showTools(FREContext context, void *unused, uint32_t argc, FREO
         if (!session.drawer) {
             __weak AQWMapSession *weakSession = session;
             session.drawer = [[AQWBotDrawer alloc] initWithFrame:host.bounds
-                command:^(NSString *action, NSArray *slots, BOOL autoTarget) {
+                command:^(NSDictionary *body) {
                     AQWMapSession *live = weakSession;
-                    NSDictionary *body = @{@"action":action, @"slots":slots ?: @[], @"auto":@(autoTarget)};
                     NSData *data = [NSJSONSerialization dataWithJSONObject:body options:0 error:NULL];
                     NSString *message = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
                     @synchronized (live) {
@@ -164,11 +165,16 @@ static FREObject showTools(FREContext context, void *unused, uint32_t argc, FREO
 static FREObject updateTools(FREContext context, void *unused, uint32_t argc, FREObject argv[]) {
     if (argc != 3) return NULL;
     AQWMapSession *session = sessionFor(context);
-    NSString *field = stringArgument(argv[0]), *text = stringArgument(argv[1]);
+    NSString *field = stringArgument(argv[0]);
+    NSString *text = limitedString(argv[1], [field isEqual:@"bag"] ? 262144 : 8192);
     uint32_t running = 0;
     if (!text || FREGetObjectAsBool(argv[2], &running) != FRE_OK) return NULL;
     onUI(^{
-        if ([field isEqualToString:@"map"]) [session.drawer showMap:text];
+        if ([field isEqual:@"bag"]) {
+            NSData *data = [text dataUsingEncoding:NSUTF8StringEncoding];
+            id bag = [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
+            if ([bag isKindOfClass:NSDictionary.class]) [session.drawer showBag:bag];
+        } else if ([field isEqualToString:@"map"]) [session.drawer showMap:text];
         else if ([field isEqualToString:@"state"]) [session.drawer showState:text running:running != 0];
     });
     return NULL;
