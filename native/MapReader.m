@@ -2,6 +2,9 @@
 #include <dlfcn.h>
 #include <string.h>
 #import "MapReader.h"
+#import "BotDrawer.h"
+
+extern UIWindow *AQWGameWindow(void);
 
 typedef int (*AQWMapExchange)(void *, const char *, char *, int);
 typedef int (*AQWMapRead)(const char *, void *, AQWMapExchange, char *, int);
@@ -12,6 +15,7 @@ typedef int (*AQWMapRead)(const char *, void *, AQWMapExchange, char *, int);
 @property(nonatomic, copy) NSString *pending;
 @property(nonatomic, strong) NSData *reply;
 @property(nonatomic, strong) dispatch_semaphore_t ready;
+@property(nonatomic, strong) AQWBotDrawer *drawer;
 @end
 @implementation AQWMapSession
 @end
@@ -121,6 +125,55 @@ static FREObject beginMap(FREContext context, void *unused, uint32_t argc, FREOb
     return result;
 }
 
+static void onUI(dispatch_block_t work) {
+    if (NSThread.isMainThread) work(); else dispatch_sync(dispatch_get_main_queue(), work);
+}
+
+static FREObject showTools(FREContext context, void *unused, uint32_t argc, FREObject argv[]) {
+    AQWMapSession *session = sessionFor(context);
+    uint32_t verify = 0;
+    if (argc == 1) FREGetObjectAsBool(argv[0], &verify);
+    __block BOOL shown = NO;
+    onUI(^{
+        UIWindow *window = AQWGameWindow();
+        if (!window || (verify && ![AQWBotDrawer checkControls])) return;
+        if (!session.drawer) {
+            __weak AQWMapSession *weakSession = session;
+            session.drawer = [[AQWBotDrawer alloc] initWithFrame:window.bounds
+                command:^(NSString *action, NSArray *slots, BOOL autoTarget) {
+                    AQWMapSession *live = weakSession;
+                    NSDictionary *body = @{@"action":action, @"slots":slots ?: @[], @"auto":@(autoTarget)};
+                    NSData *data = [NSJSONSerialization dataWithJSONObject:body options:0 error:NULL];
+                    NSString *message = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+                    @synchronized (live) {
+                        if (live.context && post(live,"bot.command",message) != FRE_OK)
+                            [live.drawer showState:@"Controls unavailable" running:NO];
+                    }
+                }];
+        }
+        if (session.drawer.superview != window) [window addSubview:session.drawer];
+        [window bringSubviewToFront:session.drawer];
+        if (verify) [session.drawer setExpanded:YES];
+        shown = YES;
+    });
+    FREObject result = NULL;
+    FRENewObjectFromBool(shown,&result);
+    return result;
+}
+
+static FREObject updateTools(FREContext context, void *unused, uint32_t argc, FREObject argv[]) {
+    if (argc != 3) return NULL;
+    AQWMapSession *session = sessionFor(context);
+    NSString *field = stringArgument(argv[0]), *text = stringArgument(argv[1]);
+    uint32_t running = 0;
+    if (!text || FREGetObjectAsBool(argv[2], &running) != FRE_OK) return NULL;
+    onUI(^{
+        if ([field isEqualToString:@"map"]) [session.drawer showMap:text];
+        else if ([field isEqualToString:@"state"]) [session.drawer showState:text running:running != 0];
+    });
+    return NULL;
+}
+
 void AQWMapContextOpen(FREContext context, uint32_t *count, const FRENamedFunction **functions) {
     AQWMapSession *session = [AQWMapSession new];
     session.context = context;
@@ -128,6 +181,8 @@ void AQWMapContextOpen(FREContext context, uint32_t *count, const FRENamedFuncti
     static FRENamedFunction entries[] = {
         {(const uint8_t *)"readMap", NULL, beginMap},
         {(const uint8_t *)"mapReply", NULL, completeMap},
+        {(const uint8_t *)"showTools", NULL, showTools},
+        {(const uint8_t *)"updateTools", NULL, updateTools},
     };
     *count = sizeof(entries) / sizeof(entries[0]);
     *functions = entries;
@@ -139,4 +194,5 @@ void AQWMapContextClose(void *state) {
         session.context = NULL;
         if (session.ready) dispatch_semaphore_signal(session.ready);
     }
+    dispatch_async(dispatch_get_main_queue(), ^{ [session.drawer removeFromSuperview]; session.drawer = nil; });
 }

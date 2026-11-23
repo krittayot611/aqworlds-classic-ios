@@ -1,6 +1,8 @@
 package {
     import flash.accessibility.AccessibilityProperties;
+    import flash.desktop.NativeApplication;
     import flash.display.Sprite;
+    import flash.events.Event;
     import flash.events.MouseEvent;
     import flash.events.StatusEvent;
     import flash.external.ExtensionContext;
@@ -12,6 +14,8 @@ package {
         private var game:Function;
         private var label:TextField = new TextField();
         private var done:Function;
+        private var rotation:SkuaRotation;
+        private var foreground:Boolean = true;
 
         public function CurrentMapReader(currentGame:Function) {
             game = currentGame;
@@ -42,6 +46,39 @@ package {
             });
         }
 
+        public function showTools(verify:Boolean):Boolean {
+            if (!rotation) {
+                rotation = new SkuaRotation(game, function(text:String, active:Boolean):void {
+                    context.call("updateTools", "state", text, active);
+                });
+                NativeApplication.nativeApplication.addEventListener(Event.DEACTIVATE, onBackground);
+                NativeApplication.nativeApplication.addEventListener(Event.ACTIVATE, onForeground);
+            }
+            return context.call("showTools", verify) === true;
+        }
+
+        private function onBackground(event:Event):void {
+            foreground = false;
+            if (rotation && rotation.running) rotation.stop("Stopped · app in background");
+        }
+
+        private function onForeground(event:Event):void { foreground = true; }
+
+        private function botCommand(message:String):void {
+            if (!rotation) return;
+            try {
+                var request:Object = JSON.parse(message);
+                if (request.action == "start" && !foreground) rotation.stop("Stopped · app in background");
+                else if (request.action == "start") rotation.start(request.slots as Array,request["auto"] === true);
+                else if (request.action == "stop") rotation.stop();
+                else if (request.action == "map" && done == null) {
+                    read(function(map:String, error:String):void {
+                        if (context) context.call("updateTools", "map", error ? "Tap to retry" : (map || ""), false);
+                    });
+                }
+            } catch (error:Error) { rotation.stop("Controls unavailable"); }
+        }
+
         public function read(callback:Function):void {
             if (done != null || context == null) { callback(null, "Map reader unavailable."); return; }
             done = callback;
@@ -51,6 +88,7 @@ package {
         }
 
         private function onStatus(event:StatusEvent):void {
+            if (event.code == "bot.command") { botCommand(event.level); return; }
             if (done == null) return;
             if (event.code == "map.result") { finish(event.level ? event.level : null, null); return; }
             if (event.code == "map.error") { finish(null, event.level); return; }
@@ -76,6 +114,9 @@ package {
 
         public function dispose():void {
             removeEventListener(MouseEvent.CLICK, onTap);
+            NativeApplication.nativeApplication.removeEventListener(Event.DEACTIVATE,onBackground);
+            NativeApplication.nativeApplication.removeEventListener(Event.ACTIVATE,onForeground);
+            if (rotation) { rotation.dispose(); rotation = null; }
             if (context != null) {
                 context.removeEventListener(StatusEvent.STATUS, onStatus);
                 context.dispose();

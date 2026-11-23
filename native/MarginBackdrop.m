@@ -38,7 +38,7 @@
 
 static AQWMarginBackdrop *backdrop;
 
-static UIWindow *AQWGameWindow(void) {
+UIWindow *AQWGameWindow(void) {
     UIApplication *application = UIApplication.sharedApplication;
     if (@available(iOS 13.0, *)) {
         for (UIScene *scene in application.connectedScenes) {
