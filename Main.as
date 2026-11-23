@@ -113,7 +113,7 @@ package {
             gameLoader.contentLoaderInfo.addEventListener(
                 SecurityErrorEvent.SECURITY_ERROR, onLoadError
             );
-            writeStartup("Touch client 0.1.10: loading screen ready");
+            writeStartup("Touch client 0.1.11: loading screen ready");
             try {
                 centerStage();
                 stage.addEventListener(Event.RESIZE, centerStage);
@@ -351,16 +351,27 @@ package {
             var assets:File = File.applicationDirectory;
             if (!assets.resolvePath("AqwMapRuntime/scripts/ReadMap.cs").exists) return;
             try {
-                if (mapReader == null) {
-                    mapReader = new CurrentMapReader(function():Object { return gameClient; });
+                closeTools();
+                mapReader = new CurrentMapReader(function():Object { return gameClient; });
+                var check:File = assets.resolvePath("aqw-map-check.json");
+                if (!mapReader.showTools(check.exists)) {
                     mapReader.x = 798; mapReader.y = 8;
                     addChild(mapReader);
+                    if (check.exists) throw new Error("Bot drawer controls failed verification.");
                 }
-                var check:File = assets.resolvePath("aqw-map-check.json");
-                if (check.exists) MapRegression.checkReader(mapReader, check, writeStartup);
+                if (check.exists) {
+                    MapRegression.checkRotation(writeStartup);
+                    MapRegression.checkReader(mapReader, check, writeStartup);
+                }
             } catch (error:Error) {
                 writeStartup("Map reader unavailable: " + error.message);
             }
+        }
+
+        private function closeTools():void {
+            if (!mapReader) return;
+            if (mapReader.parent) mapReader.parent.removeChild(mapReader);
+            mapReader.dispose(); mapReader = null;
         }
 
         private function onProgress(event:ProgressEvent):void {
@@ -405,6 +416,7 @@ package {
         }
 
         private function showFailure(text:String):void {
+            closeTools();
             writeStartup("Load failed (" + loadPhase + "): " + text);
             panel.visible = true;
             if (panel.parent == this) {

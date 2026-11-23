@@ -11,6 +11,57 @@ package {
 
     // Run only by the release smoke check; never creates a game session.
     public final class MapRegression {
+        public static function checkRotation(note:Function):void {
+            var target:Object = {dataLeaf:{intHP:100}, objData:{strMonName:"Fixture"},pMC:{}};
+            var player:Object = {dataLeaf:{intHP:100,sta:{}},target:null};
+            var used:Array = [];
+            var bar:Array = [null,{id:2,isOK:true,cd:0,ts:0},{id:3,isOK:true,cd:0,ts:0},
+                             {id:4,isOK:true,cd:0,ts:0},{id:5,isOK:true,cd:0,ts:0}];
+            var world:Object = {myAvatar:player,strMapName:"fixture",strFrame:"Enter",actions:{active:bar},
+                GCD:0,GCDTS:0,testAction:function(skill:Object):void { used.push(skill.id); }};
+            var game:Object = {world:world};
+            var state:String;
+            var walking:int;
+            var candidates:Array = [target];
+            world.getMonstersByCell = function(frame:String):Array { return frame == "Enter" ? candidates : []; };
+            world.setTarget = function(unit:Object):void { player.target = unit; };
+            world.approachTarget = function():void { walking++; };
+            var bot:SkuaRotation = new SkuaRotation(function():Object { return game; },
+                function(text:String,on:Boolean):void { state = text; });
+            function need(ok:Boolean, description:String):void {
+                if (!ok) throw new Error("Rotation check: " + description + " (" + state + ")");
+            }
+            try {
+                bot.start([],false); need(!bot.running,"empty order");
+                bot.start([6],false); need(!bot.running,"invalid slot");
+                bot.start([3,2,3],false);
+                need(bot.running && !used.length && !walking,"manual target");
+                player.target = {dataLeaf:{intHP:100},objData:{strUsername:"Fixture"},pMC:{}};
+                bot.tick(); need(!used.length,"ignore player target");
+                player.target = target;
+                world.GCD = 10000; world.GCDTS = new Date().time;
+                bot.tick(); need(!used.length,"global cooldown");
+                world.GCD = 0;
+                bar[2].ts = new Date().time; bar[2].cd = 10000;
+                bot.tick(); need(!used.length,"skill cooldown");
+                bar[2].ts = 0;
+                bot.tick(); bot.tick(); bot.tick();
+                need(used.join(",") == "3,2,3","ordered repeat");
+                world.strFrame = "Exit"; bot.tick();
+                need(!bot.running && used.length == 3,"room change");
+                world.strFrame = "Enter"; player.target = null; candidates = [];
+                bot.start([2,4],true); need(bot.running && !walking,"wait for respawn");
+                candidates = [target]; bot.tick(); need(player.target === target && walking == 1,"auto target");
+                bar[1].lock = true; bot.tick(); need(used[3] === 4,"skip locked slot");
+                player.dataLeaf.intHP = 0; bot.tick(); need(!bot.running,"stop on death");
+                player.dataLeaf.intHP = 100; bot.start([5],false);
+                game.world = null; bot.tick(); need(!bot.running,"logout");
+                game.world = world; bot.start([5],false); bot.stop();
+                var count:int = used.length; bot.tick(); need(!bot.running && used.length == count,"manual stop");
+                note("BOT_CHECK passed: edge controls, both sides, ordered skills, targeting, cooldowns and stop");
+            } finally { bot.dispose(); }
+        }
+
         // Read the attached client first. Exercise two distinct names and logout
         // with a local world so CI never changes an account or joins a server.
         public static function checkReader(live:CurrentMapReader, config:File, note:Function):void {

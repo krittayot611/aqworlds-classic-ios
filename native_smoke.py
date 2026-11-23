@@ -17,11 +17,12 @@ def map_observations(log, expected):
         raise RuntimeError('Map reader failed:\n' + log[-3000:])
     live = [json.loads(line.split('MAP_LIVE ', 1)[1]) for line in log.splitlines() if 'MAP_LIVE ' in line]
     samples = [json.loads(line.split('MAP_SAMPLE ', 1)[1]) for line in log.splitlines() if 'MAP_SAMPLE ' in line]
-    if len(samples) < 3:
+    if len(samples) < 3 or 'BOT_CHECK passed:' not in log:
         return None
     if len(live) != 1 or (live[0] is not None and not isinstance(live[0], str)) or samples != [*expected, None]:
         raise RuntimeError(f'Incorrect map readings: live={live!r}, samples={samples!r}')
     return {'client_attached': True, 'client_map_at_startup': live[0], 'fixture_readings': samples,
+            'bot_drawer_layout_and_controls': True, 'skill_rotation_fixture': True,
             'online_map_transition_tested': False, 'physical_device_tested': False}
 
 
