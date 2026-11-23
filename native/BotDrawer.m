@@ -201,11 +201,15 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     CGFloat w = CGRectGetWidth(self.bounds), h = CGRectGetHeight(self.bounds);
     CGFloat scale = MIN(w/960., h/550.);
     CGFloat sideGutter = (w - 960.*scale)/2., topGutter = (h - 550.*scale)/2.;
-    CGFloat inset = self.left ? CGRectGetMinX(safe) : w-CGRectGetMaxX(safe);
-    CGFloat offset = MAX(4, (sideGutter-inset-52)/2.);
-    CGFloat x = self.left ? CGRectGetMinX(safe)+offset : CGRectGetMaxX(safe)-offset-52;
+    CGFloat x = self.left ? CGRectGetMinX(safe)+4 : CGRectGetMaxX(safe)-56;
     CGFloat y = CGRectGetMinY(safe)+8;
-    if (topGutter > CGRectGetMinY(safe)+52)
+    if (sideGutter >= 64) {
+        // The upper corner is clear of the centered landscape camera cutout.
+        // Use the actual artwork gutter so the collapsed tab stays off the game.
+        CGFloat offset = (sideGutter-52)/2.;
+        x = self.left ? offset : w-offset-52;
+        y = MAX(y,MIN(24., h*.08));
+    } else if (topGutter > CGRectGetMinY(safe)+52)
         y = CGRectGetMinY(safe) + (topGutter-CGRectGetMinY(safe)-44)/2.;
     self.handle.frame = CGRectIntegral(CGRectMake(x,y,52,44));
     self.quickStop.frame = CGRectIntegral(CGRectMake(x,y+48,52,44));
@@ -296,6 +300,10 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
             view.left = side;
             [view setExpanded:NO];
             [view layoutIfNeeded];
+            if ((CGRectGetMidX(view.handle.frame) < CGRectGetMidX(view.bounds)) != view.left) return NO;
+            CGFloat gutter = (CGRectGetWidth(view.bounds)-CGRectGetHeight(view.bounds)*960./550.)/2.;
+            if (gutter >= 64 && (view.left ? CGRectGetMaxX(view.handle.frame)>gutter :
+                                   CGRectGetMinX(view.handle.frame)<CGRectGetWidth(view.bounds)-gutter)) return NO;
             if ([view hitTest:CGPointMake(CGRectGetMidX(view.bounds),CGRectGetMidY(view.bounds)) withEvent:nil]) return NO;
             [view.handle sendActionsForControlEvents:UIControlEventTouchUpInside];
             [view layoutIfNeeded];

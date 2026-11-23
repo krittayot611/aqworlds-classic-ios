@@ -2,6 +2,7 @@
 #import <string.h>
 #import "FlashRuntimeExtensions.h"
 #import "MapReader.h"
+#import "BotDrawer.h"
 
 // A native view paints only the physical gutters outside AIR's SHOW_ALL canvas.
 // It never changes the AIR view, game transforms, Stage coordinates or hit tests.
@@ -103,6 +104,9 @@ static FREObject AQWShowMargins(FREContext context, void *data, uint32_t argc, F
         backdrop.frame = host.bounds;
         if (backdrop.superview != host) { [backdrop removeFromSuperview]; [host addSubview:backdrop]; }
         [host bringSubviewToFront:backdrop];
+        for (UIView *view in host.subviews) {
+            if ([view isKindOfClass:AQWBotDrawer.class]) { [host insertSubview:backdrop belowSubview:view]; break; }
+        }
         [backdrop setNeedsDisplay];
         CGRect game = [backdrop gameRect];
         result = [NSString stringWithFormat:@"active; view=%.1fx%.1f; game=%.1f,%.1f,%.1f,%.1f; input=disabled",

@@ -135,11 +135,11 @@ static FREObject showTools(FREContext context, void *unused, uint32_t argc, FREO
     if (argc == 1) FREGetObjectAsBool(argv[0], &verify);
     __block BOOL shown = NO;
     onUI(^{
-        UIWindow *window = AQWGameWindow();
-        if (!window || (verify && ![AQWBotDrawer checkControls])) return;
+        UIView *host = AQWGameWindow().rootViewController.view;
+        if (!host || (verify && ![AQWBotDrawer checkControls])) return;
         if (!session.drawer) {
             __weak AQWMapSession *weakSession = session;
-            session.drawer = [[AQWBotDrawer alloc] initWithFrame:window.bounds
+            session.drawer = [[AQWBotDrawer alloc] initWithFrame:host.bounds
                 command:^(NSString *action, NSArray *slots, BOOL autoTarget) {
                     AQWMapSession *live = weakSession;
                     NSDictionary *body = @{@"action":action, @"slots":slots ?: @[], @"auto":@(autoTarget)};
@@ -151,8 +151,8 @@ static FREObject showTools(FREContext context, void *unused, uint32_t argc, FREO
                     }
                 }];
         }
-        if (session.drawer.superview != window) [window addSubview:session.drawer];
-        [window bringSubviewToFront:session.drawer];
+        if (session.drawer.superview != host) [host addSubview:session.drawer];
+        [host bringSubviewToFront:session.drawer];
         if (verify) [session.drawer setExpanded:YES];
         shown = YES;
     });
