@@ -14,7 +14,7 @@ def run(*args):
 
 def compile_archive(root, sdk, system_sdk, target, directory, archive):
     objects = []
-    for name in ('MarginBackdrop', 'MapReader', 'BotDrawer'):
+    for name in ('MarginBackdrop', 'MapReader', 'BotDrawer', 'SkillSets', 'SkillEditor'):
         obj = directory / f'{name}-{target}.o'
         run('xcrun', 'clang', '-target', target, '-isysroot', system_sdk,
             '-fobjc-arc', '-fmodules', '-I', sdk / 'include', '-c',

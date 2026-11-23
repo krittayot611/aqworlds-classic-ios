@@ -19,7 +19,14 @@ package {
                              {id:4,isOK:true,cd:0,ts:0},{id:5,isOK:true,cd:0,ts:0}];
             var world:Object = {myAvatar:player,strMapName:"fixture",strFrame:"Enter",actions:{active:bar},
                 GCD:0,GCDTS:0,testAction:function(skill:Object):void { used.push(skill.id); }};
-            var game:Object = {world:world};
+            var game:Object = {world:world,sfc:{myUserName:"One"}};
+            var healer:Object = {ItemID:"11",CharItemID:"101",sType:"Class",sName:"Healer",bEquip:"1"};
+            var mage:Object = {ItemID:22,CharItemID:"202",sES:"ar",sName:"Mage",bEquip:0};
+            player.items = [healer,mage,{ItemID:11,sName:"Healer",sES:"ar"},
+                            {ItemID:33,sType:"Armor",sES:"co",sName:"Robe",bEquip:1}];
+            player.bank = [{ItemID:44,sType:"Class",sName:"Banked"}];
+            var bag:SkillBag = new SkillBag(); var first:Object = bag.snapshot(game);
+            var sid:uint = first.session;
             var state:String;
             var walking:int;
             var candidates:Array = [target];
@@ -27,14 +34,22 @@ package {
             world.setTarget = function(unit:Object):void { player.target = unit; };
             world.approachTarget = function():void { walking++; };
             var bot:SkuaRotation = new SkuaRotation(function():Object { return game; },
-                function(text:String,on:Boolean):void { state = text; });
+                function(text:String,on:Boolean):void { state = text; },bag);
+            function step(slot:int, rules:Array=null, wait:Boolean=true, match:String="all"):Object {
+                return {slot:slot,rules:rules || [],wait:wait,match:match};
+            }
+            function play(slots:Array, auto:Boolean):void {
+                var steps:Array=[];
+                for each (var n:int in slots) steps.push(step(n));
+                bot.start(steps,auto,"11",sid);
+            }
             function need(ok:Boolean, description:String):void {
                 if (!ok) throw new Error("Rotation check: " + description + " (" + state + ")");
             }
             try {
-                bot.start([],false); need(!bot.running,"empty order");
-                bot.start([6],false); need(!bot.running,"invalid slot");
-                bot.start([3,2,3],false);
+                play([],false); need(!bot.running,"empty order");
+                play([6],false); need(!bot.running,"invalid slot");
+                play([3,2,3],false);
                 need(bot.running && !used.length && !walking,"manual target");
                 player.target = {dataLeaf:{intHP:100},objData:{strUsername:"Fixture"},pMC:{}};
                 bot.tick(); need(!used.length,"ignore player target");
@@ -50,14 +65,59 @@ package {
                 world.strFrame = "Exit"; bot.tick();
                 need(!bot.running && used.length == 3,"room change");
                 world.strFrame = "Enter"; player.target = null; candidates = [];
-                bot.start([2,4],true); need(bot.running && !walking,"wait for respawn");
+                play([2,4],true); need(bot.running && !walking,"wait for respawn");
                 candidates = [target]; bot.tick(); need(player.target === target && walking == 1,"auto target");
                 bar[1].lock = true; bot.tick(); need(used[3] === 4,"skip locked slot");
                 player.dataLeaf.intHP = 0; bot.tick(); need(!bot.running,"stop on death");
-                player.dataLeaf.intHP = 100; bot.start([5],false);
+                player.dataLeaf.intHP = 100; play([5],false);
                 game.world = null; bot.tick(); need(!bot.running,"logout");
-                game.world = world; bot.start([5],false); bot.stop();
+                game.world = world; sid=bag.session(game); play([5],false); need(bot.running,"restart after login"); bot.stop();
                 var count:int = used.length; bot.tick(); need(!bot.running && used.length == count,"manual stop");
+                need(first.classes.length == 2 && first.classes[0].id == "11" && first.classes[1].id == "22" &&
+                     first.equipped == "11" && !SkillBag.owned(player,"44"),"bag excludes bank, cosmetics and duplicates");
+                var aura:Object = {kind:"aura",who:"self",name:"  Focus ",op:"stacks",value:3};
+                var missing:Object = {kind:"aura",who:"target",name:"Seal",op:"missing"};
+                var hp:Object = {kind:"hp",who:"self",op:"below",value:60};
+                var mp:Object = {kind:"mp",who:"target",op:"above",value:30};
+                var stacked:Object = step(3,[aura,missing,hp,mp]);
+                player.target=target; player.dataLeaf.intHP=50; player.dataLeaf.intHPMax=100;
+                target.dataLeaf.intMP=4; target.dataLeaf.intMPMax=10;
+                world.uoTree={one:{hudAuras:{FOCUS:{n:3,end:0}}}};
+                need(!SkillRules.allows(stacked,game,target),"missing aura data cannot match absence");
+                target.dataLeaf.hudAuras={};
+                need(SkillRules.valid([stacked]) && SkillRules.allows(stacked,game,target),"self stacks, target absence and resources");
+                target.dataLeaf.hudAuras.Seal={n:1,persist:true};
+                need(!SkillRules.allows(stacked,game,target) && SkillRules.allows(step(2,[missing,hp],true,"any"),game,target),"all or any");
+                delete target.dataLeaf.hudAuras.Seal;
+                world.uoTree.one.hudAuras.FOCUS.end=1;
+                need(!SkillRules.allows(step(3,[aura]),game,target),"expired HUD aura");
+                delete world.uoTree.one.hudAuras;
+                world.uoTree.one.auras=[{nam:"Focus",val:4,e:0}];
+                need(SkillRules.allows(stacked,game,target),"raw aura fallback");
+                world.uoTree.one.auras[0].e=1;
+                need(!SkillRules.allows(stacked,game,target),"expired raw aura");
+                need(!SkillRules.valid([step(3,[{kind:"aura",who:"target",name:"",op:"missing"}])]),"blank aura rejected");
+                need(!SkillRules.valid([step(3,[{kind:"hp",who:"self",op:"below",value:110}])]),"invalid percent rejected");
+                bar[1].lock=false; bar[2].ts=new Date().time; bar[2].cd=50000;
+                count=used.length; bot.start([stacked,step(3,[],false),step(4)],false,"11",sid);
+                need(used.length==count+1 && used[count]===4,"skip unmet conditions and cooling skill");
+                game.sfc.myUserName="Two"; bot.tick();
+                need(!bot.running && used.length==count+1,"same avatar, switched account stops");
+                player.objData={strUsername:"One"};
+                need(bag.snapshot(game).classes.length==0,"stale avatar hidden during account transition");
+                player.objData.strUsername="Two"; player.items=[mage]; var second:Object=bag.snapshot(game);
+                need(second.session!=sid && second.classes.length==1 && second.classes[0].id=="22","different account bag");
+                bot.start([step(3)],false,"11",second.session); need(!bot.running,"cannot start unowned class");
+                bot.start([step(3)],false,"22",sid); need(!bot.running,"stale class picker rejected");
+                var equips:int=0; world.sendEquipItemRequest=function(item:Object):void {if(item===mage) equips++;};
+                bot.start([step(4)],false,"22",second.session);
+                need(bot.running && equips==1 && used.length==count+1,"one equip request and no cast");
+                mage.bEquip=1; bot.tick();
+                need(used.length==count+1,"wait for new hotbar");
+                bar[1]={id:12,isOK:true,ts:0,cd:0}; bot.tick();
+                need(used.length==count+2 && used[used.length-1]===4,"confirmed hotbar and class");
+                mage.bEquip=0; bot.tick(); need(!bot.running,"changing class stops");
+                note("PROFILE_CHECK passed: bag isolation, shared class keys, equip acknowledgement, aura stacks/expiry, HP/MP, all/any and skip");
                 note("BOT_CHECK passed: edge controls, both sides, ordered skills, targeting, cooldowns and stop");
             } finally { bot.dispose(); }
         }
