@@ -55,7 +55,7 @@ package {
                 bot.tick(); need(!used.length,"ignore player target");
                 player.target = target;
                 world.GCD = 10000; world.GCDTS = new Date().time;
-                bot.tick(); need(!used.length,"global cooldown");
+                bot.tick(); need(!used.length && walking == 1,"approach manually selected target while respecting cooldown");
                 world.GCD = 0;
                 bar[2].ts = new Date().time; bar[2].cd = 10000;
                 bot.tick(); need(!used.length,"skill cooldown");
@@ -65,8 +65,8 @@ package {
                 world.strFrame = "Exit"; bot.tick();
                 need(!bot.running && used.length == 3,"room change");
                 world.strFrame = "Enter"; player.target = null; candidates = [];
-                play([2,4],true); need(bot.running && !walking,"wait for respawn");
-                candidates = [target]; bot.tick(); need(player.target === target && walking == 1,"auto target");
+                play([2,4],true); need(bot.running && walking == 1,"wait for respawn");
+                candidates = [target]; bot.tick(); need(player.target === target && walking == 2,"auto target");
                 bar[1].lock = true; bot.tick(); need(used[3] === 4,"skip locked slot");
                 player.dataLeaf.intHP = 0; bot.tick(); need(!bot.running,"stop on death");
                 player.dataLeaf.intHP = 100; play([5],false);
@@ -104,7 +104,7 @@ package {
                 readyStep.rulesEnabled=false;
                 bar[2].isOK=false;
                 bot.start([step(3,[],true),readyStep],false,"11",sid);
-                need(used.length==count && state=="Waiting for skill 3","on holds the current cooling slot");
+                need(used.length==count && state=="Waiting for skill 2","on holds the current cooling slot");
                 bar[2].isOK=true; bar[2].ts=0;
                 bot.tick(); need(used.length==count+1 && used[count]===3,"on resumes on the same slot");
                 bot.stop(); bar[2].ts=new Date().time;
@@ -134,12 +134,64 @@ package {
                 bar[1]={id:12,isOK:true,ts:0,cd:0}; bot.tick();
                 need(used.length==count+2 && used[used.length-1]===4,"confirmed hotbar and class");
                 mage.bEquip=0; bot.tick(); need(!bot.running,"changing class stops");
+                checkDestinations();
+                note("MAP_TOOLS_CHECK passed: class ability names, room and pad, map-wide spawns, travel and cancellation");
                 note("PROFILE_CHECK passed: bag isolation, shared class keys, equip acknowledgement, aura stacks/expiry, HP/MP, all/any and skip");
                 checkResourceRules();
                 note("STEP_CHECK passed: wait on/off, use the next ready skill, retry a skipped slot and disabled conditions");
                 note("RULE_CHECK passed: inclusive points/percent, party membership and room, named aura stacks and saved rule modes");
                 note("BOT_CHECK passed: right edge controls, ordered skills, targeting, cooldowns and stop");
             } finally { bot.dispose(); }
+        }
+
+        private static function checkDestinations():void {
+            function expect(ok:Boolean, name:String):void {
+                if (!ok) throw new Error("Map tools: " + name);
+            }
+            var player:Object = {items:[{ItemID:11,sName:"Mage",sType:"Class",bEquip:1},
+                {ItemID:22,sName:"Healer",sType:"Class",bEquip:0}],objData:{strUsername:"Player"}};
+            var game:MovieClip = new MovieClip();
+            var bar:Array = [null,{nam:"Blue Impact"},{nam:"Two"},{nam:"Three"},{nam:"Four"}];
+            var w:Object = {strAreaName:"fixture-1234",strMapName:"fixture",strFrame:"Enter",strPad:"Spawn",
+                actions:{active:bar},myAvatar:player,mondefMap:{"3":{strMonName:"Wolf"}},
+                monmap:[{MonMapID:5,MonID:3,strFrame:"r1"},{MonMapID:6,MonID:3,strFrame:"Enter"}]};
+            game.world = w; game.sfc = {myUserName:"Player"};
+            var bag:SkillBag = new SkillBag();
+            expect(bag.snapshot(game).classes[1].skills[0]=="Blue Impact","button one reads the first class skill");
+            player.items[0].bEquip=0; player.items[1].bEquip=1;
+            expect(!bag.snapshot(game).classes[0].skills,"old bar never labeled with the incoming class");
+            bar[1]={nam:"Heal"};
+            expect(bag.snapshot(game).classes[0].skills[0]=="Heal","new class bar");
+            var wolf:Object = {objData:{MonMapID:5,strMonName:"Wolf"},dataLeaf:{strFrame:"r1",intHP:10},pMC:{}};
+            w.monsters = [wolf];
+            var mobs:Array = MapDestinations.mobs(w);
+            expect(mobs.length==2 && mobs[1].id=="5","map-wide spawns and live instances merge by map id");
+            var nav:MapDestinations = new MapDestinations();
+            nav.observe(game,1,0); w.strFrame="r1"; w.strPad="Left"; nav.observe(game,1,10);
+            var mark:Object = nav.bookmark(game);
+            expect(mark.area=="fixture-1234" && mark.cell=="r1" && mark.pad=="Left" && mark.route.length==2,"exact mark");
+            var joined:String, walks:int=0, targets:int=0;
+            w.gotoTown=function(a:String,c:String,p:String):void { joined=[a,c,p].join("/"); };
+            w.getMonstersByCell=function(c:String):Array {return [wolf];};
+            w.setTarget=function(unit:Object):void { if (unit===wolf) ++targets; };
+            w.approachTarget=function():void { ++targets; };
+            w.walkToPoint=function(x:Number,y:Number,fast:Boolean):Boolean { ++walks; return !fast; };
+            var door:MovieClip=new MovieClip(); door.tCell="r1"; door.tPad="Left";
+            door.graphics.beginFill(0); door.graphics.drawRect(0,0,10,10); door.graphics.endFill();
+            game.addChild(door); w.arrEvent=[door];
+            w.strAreaName="other-1";
+            nav.begin(game,mark,null,1,20); nav.observe(game,1,30);
+            expect(joined=="fixture-1234/Enter/Spawn" && nav.active && walks==0,"exact instance join before walking");
+            w.strAreaName=mark.area; w.strFrame="Enter"; w.strPad="Spawn"; nav.observe(game,1,40);
+            expect(walks==1 && nav.active,"walk onto map exit");
+            w.strFrame="r1"; w.strPad="Left";
+            expect(nav.observe(game,1,50).indexOf("At fixture-1234") == 0 && !nav.active,"confirmed destination");
+            nav.begin(game,mark,"5",1,60); expect(targets==2 && !nav.active,"approach selected monster");
+            w.strAreaName="other-2";
+            expect(nav.begin(game,mark,"5",1,65).indexOf("Map changed")==0 && !nav.active,"stale mob selection");
+            nav.begin(game,mark,null,1,70); nav.observe(game,2,80);
+            expect(!nav.active,"stop on account switch");
+            w.mapLoadInProgress=true; expect(!nav.bookmark(game),"ignore incomplete map transitions");
         }
 
         private static function checkResourceRules():void {

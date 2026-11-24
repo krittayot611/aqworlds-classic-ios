@@ -17,7 +17,7 @@ def map_observations(log, expected):
         raise RuntimeError('Map reader failed:\n' + log[-3000:])
     live = [json.loads(line.split('MAP_LIVE ', 1)[1]) for line in log.splitlines() if 'MAP_LIVE ' in line]
     samples = [json.loads(line.split('MAP_SAMPLE ', 1)[1]) for line in log.splitlines() if 'MAP_SAMPLE ' in line]
-    if len(samples) < 3 or any(marker not in log for marker in ('BOT_CHECK passed:', 'PROFILE_CHECK passed:', 'RULE_CHECK passed:', 'STEP_CHECK passed:')):
+    if len(samples) < 3 or any(marker not in log for marker in ('BOT_CHECK passed:', 'PROFILE_CHECK passed:', 'RULE_CHECK passed:', 'STEP_CHECK passed:', 'MAP_TOOLS_CHECK passed:')):
         return None
     if len(live) != 1 or (live[0] is not None and not isinstance(live[0], str)) or samples != [*expected, None]:
         raise RuntimeError(f'Incorrect map readings: live={live!r}, samples={samples!r}')
