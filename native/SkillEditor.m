@@ -328,13 +328,31 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
 - (void)viewDidLoad {
     [super viewDidLoad]; self.title = @"Edit skill";
     self.rules = [self.step[@"rules"] mutableCopy];
+    if (!self.step[@"rulesEnabled"]) self.step[@"rulesEnabled"] = @(self.rules.count != 0);
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(done:)];
 }
 - (NSDictionary *)value { self.step[@"rules"]=[self.rules copy]; return [self.step copy]; }
-- (void)toggleRules:(UISwitch *)control { self.step[@"rulesEnabled"] = @(control.on); }
+- (void)switchChanged:(UISwitch *)control {
+    self.step[control.accessibilityIdentifier] = @(control.on);
+}
+- (UITableViewCell *)switchRow:(NSString *)title key:(NSString *)key {
+    UITableViewCell *row = cell(title,nil,NO);
+    UISwitch *control = [UISwitch new];
+    control.on = [self.step[key] boolValue];
+    control.onTintColor = [UIColor colorWithWhite:.53 alpha:1];
+    control.accessibilityLabel = title;
+    control.accessibilityIdentifier = key;
+    [control addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
+    row.accessoryView = control;
+    row.selectionStyle = UITableViewCellSelectionStyleNone;
+    return row;
+}
 - (void)done:(id)sender { self.commit(self.value); [self.navigationController popViewControllerAnimated:YES]; }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 3; }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)s { return @[@"Hotbar",@"Conditions",@"Sequence"][s]; }
+- (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)s {
+    return s == 0 ? @"Off uses the next ready skill in order. On waits for this skill." : nil;
+}
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)s {
     if (s==0) return 2;
     if (s==1) return 2+self.rules.count+(self.rules.count<8);
@@ -342,15 +360,9 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
 }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)p {
     if (p.section==0) return p.row==0 ? cell(@"Skill slot",[self.step[@"slot"] stringValue],YES) :
-        cell(@"On cooldown",[self.step[@"wait"] boolValue] ? @"Wait for cooldown" : @"Skip to next skill",YES);
+        [self switchRow:@"Wait for cooldown" key:@"wait"];
     if (p.section==1) {
-        if (!p.row) {
-            UITableViewCell *row=cell(@"Use rules",nil,NO);
-            UISwitch *control=[UISwitch new]; control.on=![self.step[@"rulesEnabled"] isEqual:@NO];
-            control.onTintColor=AQWKeyline(); control.accessibilityLabel=@"Use rules";
-            [control addTarget:self action:@selector(toggleRules:) forControlEvents:UIControlEventValueChanged];
-            row.accessoryView=control; row.selectionStyle=UITableViewCellSelectionStyleNone; return row;
-        }
+        if (!p.row) return [self switchRow:@"Use rules" key:@"rulesEnabled"];
         if (p.row==1) return cell(@"Match",[self.step[@"match"] isEqual:@"any"] ? @"Any condition" : @"All conditions",YES);
         return p.row-2<self.rules.count ? cell(AQWRuleTitle(self.rules[p.row-2]),nil,YES) : cell(@"Add condition",@"Health, Mana, Party HP or a named aura",YES);
     }
@@ -363,12 +375,10 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
     if (p.section==0 && p.row==0)
         pick(self,@"Skill slot",@[@"2",@"3",@"4",@"5"],@[@"Skill 2",@"Skill 3",@"Skill 4",@"Skill 5"],[self.step[@"slot"] stringValue],
              ^(NSString *v){ self.step[@"slot"]=@(v.integerValue); [table reloadData]; });
-    else if (p.section==0)
-        pick(self,@"On cooldown",@[@"wait",@"skip"],@[@"Wait for cooldown",@"Skip to next skill"],[self.step[@"wait"] boolValue] ? @"wait" : @"skip",
-             ^(NSString *v){ self.step[@"wait"]=@([v isEqual:@"wait"]); [table reloadData]; });
-    else if (p.section==1 && p.row==0) {
+    else if (p.section==0 || (p.section==1 && p.row==0)) {
         UISwitch *control=(UISwitch *)[table cellForRowAtIndexPath:p].accessoryView;
-        [control setOn:!control.on animated:YES]; [self toggleRules:control];
+        [control setOn:!control.on animated:YES];
+        [control sendActionsForControlEvents:UIControlEventValueChanged];
     } else if (p.section==1 && p.row==1)
         pick(self,@"Match",@[@"all",@"any"],@[@"All conditions",@"Any condition"],self.step[@"match"],
              ^(NSString *v){ self.step[@"match"]=v; [table reloadData]; });
@@ -405,6 +415,7 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
     [super viewDidLoad];
     self.navigationItem.leftBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(cancel:)];
     self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemSave target:self action:@selector(save:)];
+    self.navigationItem.rightBarButtonItem.enabled = self.steps.count > 0;
 }
 - (void)cancel:(id)sender { [self dismissViewControllerAnimated:YES completion:nil]; }
 - (void)save:(id)sender {
@@ -414,12 +425,39 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 2; }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)s { return s ? @"Skill order" : self.className; }
+- (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)s {
+    return s == 1 && self.steps.count ? @"Swipe left on a skill to delete it." : nil;
+}
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)s { return s ? self.steps.count+(self.steps.count<32) : 1; }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)p {
     if (!p.section) return cell(@"Set name",self.name,YES);
     if (p.row==self.steps.count) return cell(@"＋ Add skill",nil,YES);
     NSDictionary *step=self.steps[p.row];
     return cell([NSString stringWithFormat:@"%ld.   Skill %@",(long)p.row+1,step[@"slot"]],AQWStepSummary(step),YES);
+}
+- (void)removeStepAtIndex:(NSUInteger)index {
+    [self.steps removeObjectAtIndex:index];
+    self.navigationItem.rightBarButtonItem.enabled = self.steps.count > 0;
+    [self.tableView reloadData];
+}
+- (BOOL)tableView:(UITableView *)table canEditRowAtIndexPath:(NSIndexPath *)p {
+    return p.section == 1 && p.row < self.steps.count;
+}
+- (UISwipeActionsConfiguration *)tableView:(UITableView *)table trailingSwipeActionsConfigurationForRowAtIndexPath:(NSIndexPath *)p {
+    if (![self tableView:table canEditRowAtIndexPath:p]) return nil;
+    NSUInteger index = p.row;
+    NSDictionary *step = self.steps[index];
+    __weak AQWSkillEditor *weakSelf = self;
+    UIContextualAction *remove = [UIContextualAction contextualActionWithStyle:UIContextualActionStyleDestructive title:@"Delete"
+        handler:^(UIContextualAction *action, UIView *source, void (^complete)(BOOL)) {
+            AQWSkillEditor *editor = weakSelf;
+            BOOL current = index < editor.steps.count && editor.steps[index] == step;
+            if (current) [editor removeStepAtIndex:index];
+            complete(current);
+        }];
+    UISwipeActionsConfiguration *swipe = [UISwipeActionsConfiguration configurationWithActions:@[remove]];
+    swipe.performsFirstActionWithFullSwipe = NO;
+    return swipe;
 }
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)p {
     [table deselectRowAtIndexPath:p animated:YES];
@@ -436,8 +474,8 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
     ed.step=[self.steps[i] mutableCopy]; ed.canUp=i>0; ed.canDown=i+1<self.steps.count;
     ed.commit=^(NSDictionary *v){self.steps[i]=v; [table reloadData];};
     ed.move=^(NSInteger d){
-        if (!d) [self.steps removeObjectAtIndex:i]; else [self.steps exchangeObjectAtIndex:i withObjectAtIndex:i+d];
-        self.navigationItem.rightBarButtonItem.enabled=self.steps.count>0; [table reloadData];
+        if (!d) { [self removeStepAtIndex:i]; return; }
+        [self.steps exchangeObjectAtIndex:i withObjectAtIndex:i+d]; [table reloadData];
     };
     [self.navigationController pushViewController:ed animated:YES];
 }

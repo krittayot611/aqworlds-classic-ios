@@ -1,7 +1,7 @@
 #import "SkillSets.h"
 
 NSDictionary *AQWStep(NSNumber *slot) {
-    return @{@"slot":slot, @"wait":@YES, @"match":@"all", @"rules":@[]};
+    return @{@"slot":slot, @"wait":@NO, @"rulesEnabled":@NO, @"match":@"all", @"rules":@[]};
 }
 NSString *AQWRuleTitle(NSDictionary *r) {
     NSDictionary *symbols = @{@"below":@"<", @"above":@">", @"lte":@"≤", @"gte":@"≥", @"stacks":@"≥"};
@@ -18,8 +18,8 @@ NSString *AQWRuleTitle(NSDictionary *r) {
 }
 NSString *AQWStepSummary(NSDictionary *step) {
     NSArray *rules = step[@"rules"];
-    if (!rules.count) return @"Always";
     if ([step[@"rulesEnabled"] isEqual:@NO]) return @"Rules off";
+    if (!rules.count) return @"Always";
     NSMutableArray *titles = [NSMutableArray array];
     for (NSDictionary *r in rules) [titles addObject:AQWRuleTitle(r)];
     return [titles componentsJoinedByString:[step[@"match"] isEqual:@"any"] ? @" OR " : @" AND "];
@@ -80,7 +80,12 @@ static NSString *const storage = @"aqw.skillSets.v1";
     if (!classID.length || !old) return;
     if (old.count > 0 && old.count <= 8 && ![self record:classID]) {
         NSMutableArray *steps = [NSMutableArray array];
-        for (id n in old) if ([@[@2,@3,@4,@5] containsObject:n]) [steps addObject:AQWStep(n)];
+        for (id slot in old) if ([@[@2,@3,@4,@5] containsObject:slot]) {
+            // Slot-only rotations used to wait for each cooldown in sequence.
+            NSMutableDictionary *step = [AQWStep(slot) mutableCopy];
+            step[@"wait"] = @YES;
+            [steps addObject:step];
+        }
         if (steps.count == old.count)
             [self save:@{@"id":@"legacy", @"name":@"Previous rotation", @"steps":steps} forClass:classID];
     }

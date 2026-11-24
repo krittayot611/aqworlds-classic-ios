@@ -70,8 +70,6 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     self.handle.layer.cornerRadius = 12;
     [self.handle setTitleColor:AQWSilver() forState:UIControlStateNormal];
     self.quickRun = button(@"▶", @"Start skill set", self, @selector(runTapped:));
-    self.quickRun.backgroundColor = AQWStopColor();
-    [self.quickRun setTitleColor:AQWCharcoal() forState:UIControlStateNormal];
     [self addSubview:self.handle];
     [self addSubview:self.quickRun];
 
@@ -146,7 +144,6 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     ]];
     self.run = button(@"Start rotation", @"Start rotation", self, @selector(runTapped:));
     self.run.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
-    [self.run setTitleColor:AQWCharcoal() forState:UIControlStateNormal];
     UIStackView *content = stack(@[header,status,self.scroll,self.run], NO, 8);
     [self.card addSubview:content];
     content.translatesAutoresizingMaskIntoConstraints = NO;
@@ -171,9 +168,9 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     self.handle.accessibilityLabel = self.expanded ? @"Close skill automation" : @"Open skill automation";
     self.handle.accessibilityValue = self.running ? @"Running" : @"Stopped";
     [self.handle setTitle:self.expanded ? @"Close" : @"Skills" forState:UIControlStateNormal];
-    self.handle.layer.borderColor = (self.running ? AQWStopColor() : AQWSecondary()).CGColor;
-    [self.handle setTitleColor:self.running ? AQWStopColor() : AQWSilver() forState:UIControlStateNormal];
-    self.dot.textColor = self.running ? [UIColor colorWithRed:.58 green:.83 blue:.69 alpha:1] : AQWSecondary();
+    self.handle.layer.borderColor = (self.running ? AQWSilver() : AQWSecondary()).CGColor;
+    self.dot.text = self.running ? @"●" : @"○";
+    self.dot.textColor = self.running ? AQWSilver() : AQWSecondary();
     for (UIButton *b in self.targets) {
         BOOL active = (b.tag == (NSInteger)self.autoTarget);
         b.enabled = configurable;
@@ -188,17 +185,24 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     self.chooseClass.enabled = configurable && self.classes.count > 0;
     self.chooseSet.enabled = configurable && profile;
     self.addSet.enabled = configurable && self.classes.count > 0;
-    self.setActions.hidden = self.classes.count == 0;
+    self.setActions.hidden = self.classes.count == 0 || self.running;
     self.editSet.enabled = self.deleteSet.enabled = configurable && profile;
     for (UIButton *b in @[self.chooseClass,self.chooseSet,self.addSet,self.editSet,self.deleteSet]) b.alpha = b.enabled ? 1 : .48;
     self.order.hidden = !profile;
     self.order.text = [[profile[@"steps"] valueForKey:@"slot"] componentsJoinedByString:@"  ›  "];
     NSString *verb = self.running ? @"Stop" : [self.classID isEqual:self.equipped] || !name ? @"Start" : @"Equip & start";
-    [self.run setTitle:self.pending ? @"One moment…" : verb forState:UIControlStateNormal];
+    NSString *symbol = self.running ? @"■" : @"▶";
+    NSString *buttonTitle = self.pending ? @"One moment…" : [NSString stringWithFormat:@"%@  %@",symbol,verb];
+    [self.run setTitle:buttonTitle forState:UIControlStateNormal];
     self.run.accessibilityLabel = verb;
-    self.run.backgroundColor = self.quickRun.backgroundColor = self.running ? AQWStopColor() : AQWSilver();
+    for (UIButton *control in @[self.run, self.quickRun]) {
+        control.backgroundColor = self.running ? AQWPanel() : AQWSilver();
+        control.layer.borderColor = AQWSilver().CGColor;
+        control.layer.borderWidth = self.running ? 1 : 0;
+        [control setTitleColor:self.running ? AQWSilver() : AQWCharcoal() forState:UIControlStateNormal];
+    }
     self.quickRun.accessibilityLabel = verb;
-    [self.quickRun setTitle:self.running ? @"■" : @"▶" forState:UIControlStateNormal];
+    [self.quickRun setTitle:symbol forState:UIControlStateNormal];
     self.run.enabled = !self.pending && (self.running || canStart);
     self.run.alpha = self.run.enabled ? 1 : .48;
     [self setNeedsLayout];
@@ -389,16 +393,78 @@ static void finishPage(UIViewController *page) {
     UIBarButtonItem *item=page.navigationItem.rightBarButtonItem;
     [UIApplication.sharedApplication sendAction:item.action to:item.target from:item forEvent:nil];
 }
-static void captureRuleForm(UITableViewController *page) {
-    page.view.frame=CGRectMake(0,0,510,430);
-    [page.tableView reloadData];
-    [page.view layoutIfNeeded];
-    UIGraphicsImageRenderer *renderer=[[UIGraphicsImageRenderer alloc] initWithSize:page.view.bounds.size];
+static void captureView(UIView *view, NSString *filename) {
+    [view layoutIfNeeded];
+    UIGraphicsImageRenderer *renderer=[[UIGraphicsImageRenderer alloc] initWithSize:view.bounds.size];
     UIImage *preview=[renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
-        [page.view.layer renderInContext:context.CGContext];
+        [view.layer renderInContext:context.CGContext];
     }];
     NSURL *documents=[NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
-    [UIImagePNGRepresentation(preview) writeToURL:[documents URLByAppendingPathComponent:@"aqw-condition-editor.png"] atomically:YES];
+    [UIImagePNGRepresentation(preview) writeToURL:[documents URLByAppendingPathComponent:filename] atomically:YES];
+}
+static void captureTable(UITableViewController *page, NSString *filename) {
+    page.view.frame=CGRectMake(0,0,510,430);
+    [page.tableView reloadData];
+    captureView(page.view,filename);
+}
+static NSIndexPath *skillRow(NSInteger index) {
+    return [NSIndexPath indexPathForRow:index inSection:1];
+}
+static UISwitch *stepSwitch(UITableViewController *page, NSInteger section, NSInteger row) {
+    NSIndexPath *path=[NSIndexPath indexPathForRow:row inSection:section];
+    UIView *control=[page tableView:page.tableView cellForRowAtIndexPath:path].accessoryView;
+    return [control isKindOfClass:UISwitch.class] ? (UISwitch *)control : nil;
+}
+static BOOL performSwipeDelete(UIContextualAction *action, UITableView *table) {
+    if (!action) return NO;
+    __block BOOL removed=NO;
+    action.handler(action,table,^(BOOL done){ removed=done; });
+    return removed;
+}
+static BOOL checkStepEditing(void) {
+    __block NSDictionary *saved;
+    AQWSkillEditor *editor=[[AQWSkillEditor alloc] initForClass:@"Healer" profile:nil saved:^(NSDictionary *value){ saved=value; }];
+    UINavigationController *nav=AQWSkillNavigation(editor);
+    UITableView *table=editor.tableView;
+    if ([editor tableView:table numberOfRowsInSection:1]!=5) return NO;
+    [editor tableView:table didSelectRowAtIndexPath:skillRow(4)]; // Add a second occurrence of slot 2.
+    AQWChoiceList *slots=(AQWChoiceList *)nav.topViewController;
+    [slots tableView:slots.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]];
+    if (nav.topViewController!=editor || [editor tableView:table numberOfRowsInSection:1]!=6) return NO;
+    [editor tableView:table didSelectRowAtIndexPath:skillRow(4)];
+    UITableViewController *step=(UITableViewController *)nav.topViewController;
+    UISwitch *cooldown=stepSwitch(step,0,1), *conditions=stepSwitch(step,1,0);
+    if (!cooldown || !conditions || cooldown.on || conditions.on) return NO;
+    captureTable(step,@"aqw-skill-options.png");
+    cooldown=stepSwitch(step,0,1); conditions=stepSwitch(step,1,0);
+    for (UISwitch *control in @[cooldown,conditions]) {
+        control.on=YES; [control sendActionsForControlEvents:UIControlEventValueChanged];
+    }
+    finishPage(step);
+    if (nav.topViewController!=editor || saved) return NO;
+    if ([editor tableView:table trailingSwipeActionsConfigurationForRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]] ||
+        [editor tableView:table trailingSwipeActionsConfigurationForRowAtIndexPath:skillRow(5)]) return NO;
+    UISwipeActionsConfiguration *swipe=[editor tableView:table trailingSwipeActionsConfigurationForRowAtIndexPath:skillRow(0)];
+    UIContextualAction *remove=swipe.actions.firstObject;
+    if (!remove || remove.style!=UIContextualActionStyleDestructive || ![remove.title isEqual:@"Delete"] ||
+        swipe.performsFirstActionWithFullSwipe || [editor tableView:table numberOfRowsInSection:1]!=6) return NO;
+    if (!performSwipeDelete(remove,table) || performSwipeDelete(remove,table) || saved) return NO;
+    finishPage(editor);
+    NSArray *steps=saved[@"steps"];
+    if (![[steps valueForKey:@"slot"] isEqual:@[@3,@4,@5,@2]] ||
+        ![[steps valueForKey:@"wait"] isEqual:@[@NO,@NO,@NO,@YES]] ||
+        ![[steps valueForKey:@"rulesEnabled"] isEqual:@[@NO,@NO,@NO,@YES]]) return NO;
+    for (NSUInteger i=0; i<steps.count; i++) {
+        swipe=[editor tableView:table trailingSwipeActionsConfigurationForRowAtIndexPath:skillRow(0)];
+        if (!performSwipeDelete(swipe.actions.firstObject,table)) return NO;
+    }
+    if (editor.navigationItem.rightBarButtonItem.enabled || [editor tableView:table numberOfRowsInSection:1]!=1) return NO;
+    [editor tableView:table didSelectRowAtIndexPath:skillRow(0)];
+    slots=(AQWChoiceList *)nav.topViewController;
+    [slots tableView:slots.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:1 inSection:0]];
+    if (!editor.navigationItem.rightBarButtonItem.enabled) return NO;
+    finishPage(editor);
+    return [saved[@"steps"] isEqual:@[AQWStep(@3)]];
 }
 
 + (BOOL)checkControls {
@@ -410,11 +476,13 @@ static void captureRuleForm(UITableViewController *page) {
     @finally { [UIView setAnimationsEnabled:animated]; [defaults removePersistentDomainForName:suite]; }
 }
 + (BOOL)checkControlsWithDefaults:(NSUserDefaults *)defaults {
+    if (!checkStepEditing()) return NO;
     AQWSkillSets *sets = [[AQWSkillSets alloc] initWithDefaults:defaults];
     [defaults setObject:@[@2,@4,@2] forKey:@"aqw.rotation.slots"];
     [sets migrateLegacyForEquipped:@"10"]; [sets migrateLegacyForEquipped:@"20"];
     NSArray *steps = [sets selectedFor:@"10"][@"steps"];
-    if (![[steps valueForKey:@"slot"] isEqual:@[@2,@4,@2]] || [sets setsFor:@"20"].count) return NO;
+    if (![[steps valueForKey:@"slot"] isEqual:@[@2,@4,@2]] || ![[steps valueForKey:@"wait"] isEqual:@[@YES,@YES,@YES]] ||
+        [sets setsFor:@"20"].count) return NO;
     NSDictionary *other = @{@"id":@"second",@"name":@"Boss",@"steps":@[AQWStep(@5)]};
     [sets save:other forClass:@"10"]; [sets select:@"legacy" forClass:@"10"];
     if (![[sets selectedFor:@"10"][@"id"] isEqual:@"legacy"] || [sets setsFor:@"10"].count!=2) return NO;
@@ -429,6 +497,9 @@ static void captureRuleForm(UITableViewController *page) {
     UITableViewController *step = (UITableViewController *)nav.topViewController;
     [step loadViewIfNeeded];
     if ([step isEqual:editor] || [step numberOfSectionsInTableView:step.tableView]!=3) return NO;
+    UISwitch *rules=stepSwitch(step,1,0);
+    if (rules.on || !stepSwitch(step,0,1).on) return NO;
+    rules.on=YES; [rules sendActionsForControlEvents:UIControlEventValueChanged];
     [step tableView:step.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:2 inSection:1]];
     UITableViewController *rule=(UITableViewController *)nav.topViewController;
     [rule loadViewIfNeeded];
@@ -436,7 +507,7 @@ static void captureRuleForm(UITableViewController *page) {
     if (!selectRuleSegment(rule,@"kind",@"Mana") || !selectRuleSegment(rule,@"unit",@"#") ||
         !selectRuleSegment(rule,@"op",@"≥")) return NO;
     typeRuleField(rule,@"value",@"12500");
-    captureRuleForm(rule); finishPage(rule);
+    captureTable(rule,@"aqw-condition-editor.png"); finishPage(rule);
     if (nav.topViewController!=step) return NO;
     [step tableView:step.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:3 inSection:1]];
     rule=(UITableViewController *)nav.topViewController; [rule loadViewIfNeeded];
@@ -452,7 +523,7 @@ static void captureRuleForm(UITableViewController *page) {
         @{@"kind":@"mp",@"who":@"self",@"op":@"gte",@"unit":@"raw",@"value":@12500},
         @{@"kind":@"partyhp",@"who":@"party",@"op":@"lte",@"unit":@"percent",@"value":@35},
         @{@"kind":@"aura",@"who":@"target",@"op":@"lte",@"name":@"Battle Focus",@"value":@2}];
-    if (![[saved[@"steps"] firstObject][@"rules"] isEqual:expected] ||
+    if (![[saved[@"steps"] firstObject][@"rules"] isEqual:expected] || ![[saved[@"steps"] firstObject][@"rulesEnabled"] boolValue] ||
         ![[saved[@"steps"] valueForKey:@"slot"] isEqual:[steps valueForKey:@"slot"]]) return NO;
     [sets save:saved forClass:@"10"];
     steps=[[[AQWSkillSets alloc] initWithDefaults:defaults] selectedFor:@"10"][@"steps"];
@@ -481,7 +552,13 @@ static void captureRuleForm(UITableViewController *page) {
         [view.run sendActionsForControlEvents:UIControlEventTouchUpInside];
         if (![last[@"action"] isEqual:@"start"] || ![last[@"classId"] isEqual:@"10"] ||
             ![last[@"steps"] isEqual:steps] || ![last[@"session"] isEqual:@3]) return NO;
-        [view showState:@"Running" running:YES]; [view setExpanded:NO];
+        [view showState:@"Running · skill 2" running:YES];
+        for (UIButton *control in @[view.run,view.quickRun])
+            if (![control.backgroundColor isEqual:AQWPanel()] || ![[control titleColorForState:UIControlStateNormal] isEqual:AQWSilver()] ||
+                ![control.accessibilityLabel isEqual:@"Stop"]) return NO;
+        if (![[view.quickRun titleForState:UIControlStateNormal] isEqual:@"■"] || ![view.dot.text isEqual:@"●"]) return NO;
+        if (size.CGSizeValue.width==1024) { [view layoutIfNeeded]; captureView(view.card,@"aqw-running-controls.png"); }
+        [view setExpanded:NO];
         if (view.quickRun.hidden) return NO;
         [view.quickRun sendActionsForControlEvents:UIControlEventTouchUpInside];
         if (![last[@"action"] isEqual:@"stop"]) return NO;
