@@ -10,11 +10,15 @@ package {
         private var doors:Object = {};
         private var destination:Object;
         private var monsterID:String;
-        private var fromArea:String, waitingAt:String;
+        private var fromArea:String, waitingAt:String, shortcutAt:String;
+        private var ownerWorld:Object, connection:Object, user:String;
         private var deadline:int, nextCheck:int;
 
         public function get active():Boolean { return destination != null; }
-        public function cancel():void { destination = null; monsterID = null; waitingAt = null; }
+        public function cancel():void {
+            destination = null; monsterID = null; waitingAt = shortcutAt = null;
+            ownerWorld = connection = null; user = null;
+        }
 
         public static function location(game:Object):Object {
             var w:Object = SkillBag.field(game,"world");
@@ -71,6 +75,7 @@ package {
             if (!here || !dest || !dest.area || !dest.cell) return "Enter a map and try again";
             if (mob && dest.area != here.area) return "Map changed · scan again";
             destination = dest; monsterID = mob; session = token;
+            ownerWorld = game.world; connection = game.sfc; user = SkillBag.nameOf(game);
             fromArea = here.area; deadline = now + 45000; nextCheck = 0;
             if (here.area != dest.area) {
                 game.world.gotoTown(dest.area,"Enter","Spawn");
@@ -81,7 +86,9 @@ package {
         public function observe(game:Object, token:uint, now:int):String {
             if (token != session) {
                 session = token; area = null; trail = []; doors = {};
-                if (active) return finish("Travel stopped · account changed");
+                // A normal instance join can replace the avatar while preserving the connection.
+                if (active && (SkillBag.field(game,"world") !== ownerWorld || SkillBag.field(game,"sfc") !== connection ||
+                    SkillBag.nameOf(game) !== user)) return finish("Travel stopped · account changed");
             }
             var here:Object = location(game);
             if (here) {
@@ -108,12 +115,19 @@ package {
             var w:Object = game.world;
             if (here.cell == destination.cell) {
                 if (monsterID) {
+                    var found:Boolean = false;
                     for each (var unit:Object in w.getMonstersByCell(here.cell)) {
                         if (String(SkillBag.field(unit.objData,"MonMapID")) != monsterID) continue;
+                        found = true;
                         if (!unit.pMC || !unit.dataLeaf || Number(unit.dataLeaf.intHP) <= 0) break;
                         w.setTarget(unit); w.approachTarget();
                         return finish("Approaching " + unit.objData.strMonName);
                     }
+                    if (!found && waitingAt != here.cell) {
+                        waitingAt = here.cell; nextCheck = now + 4500;
+                        return "Waiting for the monster to load";
+                    }
+                    if (!found && now < nextCheck) return null;
                     return finish("Monster unavailable · scan again");
                 }
                 if (here.pad == destination.pad)
@@ -122,22 +136,25 @@ package {
                 if (walk(game,marker)) return finish("Walking to " + here.cell + ", " + destination.pad);
             }
             if (waitingAt == here.cell && nextCheck > now) return null;
-            if (waitingAt == here.cell) return finish("Travel stopped · check the exit to " + destination.cell);
+            if (waitingAt == here.cell && shortcutAt != here.cell)
+                return finish("Travel stopped · check the exit to " + destination.cell);
             waitingAt = here.cell; nextCheck = now + 10000;
 
             // A player in the destination cell may offer the game's regular Go To shortcut.
             // Consult the live list on each selection and let the game enforce its own Go To rules.
-            if (here.cell != destination.cell && "getUsersByCell" in w && "goto" in w &&
+            if (here.cell != destination.cell && shortcutAt != here.cell && "getUsersByCell" in w && "goto" in w &&
                 !SkillBag.field(SkillBag.field(w,"map"),"nogoto")) {
                 for each (var other:Object in w.getUsersByCell(destination.cell)) {
                     var leaf:Object = SkillBag.field(other,"dataLeaf");
                     var who:* = SkillBag.field(leaf,"uoName") || SkillBag.field(leaf,"strUsername");
                     if (!who || other === w.myAvatar || (!monsterID && leaf.strPad != destination.pad)) continue;
+                    shortcutAt = here.cell; nextCheck = now + 3500;
                     w["goto"](String(who));
                     return "Going to " + destination.cell;
                 }
             }
 
+            shortcutAt = null;
             var next:Object = {cell:destination.cell,pad:monsterID ? "" : destination.pad};
             if (walkExit(game,next)) return "Walking to " + next.cell;
             var route:Array = destination.route as Array;
