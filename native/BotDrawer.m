@@ -48,6 +48,7 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
 @property(nonatomic,strong) UILabel *stateLine, *order, *dot;
 @property(nonatomic,strong) NSArray<UIButton *> *targets;
 @property(nonatomic,strong) UIView *card;
+@property(nonatomic,strong) UIStackView *setActions;
 @property(nonatomic,strong) UIScrollView *scroll;
 @end
 
@@ -126,6 +127,7 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     [self.deleteSet setTitleColor:AQWStopColor() forState:UIControlStateNormal];
     UIStackView *actions = stack(@[self.addSet,self.editSet,self.deleteSet], YES, 5);
     actions.distribution = UIStackViewDistributionFillEqually;
+    self.setActions = actions;
     self.order = label(@"",14,UIFontWeightMedium,AQWSilver()); self.order.numberOfLines = 2;
     UIStackView *body = stack(@[label(@"Bag class",13,UIFontWeightSemibold,AQWSecondary()),self.chooseClass,
         label(@"Skill set",13,UIFontWeightSemibold,AQWSecondary()),self.chooseSet,self.order,actions,
@@ -186,6 +188,7 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     self.chooseClass.enabled = configurable && self.classes.count > 0;
     self.chooseSet.enabled = configurable && profile;
     self.addSet.enabled = configurable && self.classes.count > 0;
+    self.setActions.hidden = self.classes.count == 0;
     self.editSet.enabled = self.deleteSet.enabled = configurable && profile;
     for (UIButton *b in @[self.chooseClass,self.chooseSet,self.addSet,self.editSet,self.deleteSet]) b.alpha = b.enabled ? 1 : .48;
     self.order.hidden = !profile;
@@ -354,22 +357,27 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     [self refresh];
 }
 
-static UIControl *ruleField(UITableViewController *editor, NSString *key) {
+static UIView *ruleField(UITableViewController *editor, NSString *key) {
     UITableView *table=editor.tableView;
     for (NSInteger section=0; section<2; section++) {
         for (NSInteger i=0; i<[editor tableView:table numberOfRowsInSection:section]; i++) {
             UITableViewCell *row=[editor tableView:table cellForRowAtIndexPath:[NSIndexPath indexPathForRow:i inSection:section]];
-            if ([row.accessoryView.accessibilityIdentifier isEqual:key]) return (UIControl *)row.accessoryView;
+            if ([row.accessoryView.accessibilityIdentifier isEqual:key]) return row.accessoryView;
             for (UIView *item in row.contentView.subviews)
-                if ([item.accessibilityIdentifier isEqual:key]) return (UIControl *)item;
+                if ([item.accessibilityIdentifier isEqual:key]) return item;
         }
     }
     return nil;
 }
 static BOOL selectRuleSegment(UITableViewController *editor, NSString *key, NSString *title) {
-    UISegmentedControl *control=(UISegmentedControl *)ruleField(editor,key);
-    for (NSUInteger i=0; i<control.numberOfSegments; i++) if ([[control titleForSegmentAtIndex:i] isEqual:title]) {
-        control.selectedSegmentIndex=i; [control sendActionsForControlEvents:UIControlEventValueChanged]; return YES;
+    UIStackView *options=(UIStackView *)ruleField(editor,key);
+    for (UIButton *option in options.arrangedSubviews) if ([[option titleForState:UIControlStateNormal] isEqual:title]) {
+        [option sendActionsForControlEvents:UIControlEventTouchUpInside];
+        UIStackView *updated=(UIStackView *)ruleField(editor,key);
+        for (UIButton *selected in updated.arrangedSubviews) if (selected.accessibilityTraits & UIAccessibilityTraitSelected)
+            return [[selected titleForState:UIControlStateNormal] isEqual:title] && [selected.backgroundColor isEqual:AQWSilver()]
+                && [[selected titleColorForState:UIControlStateNormal] isEqual:AQWCharcoal()];
+        return NO;
     }
     return NO;
 }

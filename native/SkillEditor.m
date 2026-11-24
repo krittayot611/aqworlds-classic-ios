@@ -208,26 +208,36 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
     NSDictionary *labels = @{@"hp":@"Health",@"mp":@"Mana",@"partyhp":@"Party HP",@"aura":@"Aura",@"self":@"Self",@"target":@"Target",
         @"raw":@"#",@"percent":@"%",@"present":@"Present",@"missing":@"Absent",@"lte":@"≤",@"gte":@"≥",@"below":@"<",@"above":@">"};
     NSArray *codes = [self codesFor:field];
-    NSMutableArray *items = [NSMutableArray array];
-    for (NSString *code in codes) [items addObject:labels[code]];
-    UISegmentedControl *control = [[UISegmentedControl alloc] initWithItems:items];
-    if (self.aura && [field isEqual:@"op"]) control.apportionsSegmentWidthsByContent = YES;
-    control.accessibilityIdentifier = field; control.accessibilityLabel = title ?: @"Rule type";
-    control.tintColor = AQWSilver();
-    if (@available(iOS 13.0,*)) { control.selectedSegmentTintColor = AQWSilver(); control.backgroundColor = AQWCharcoal(); }
-    [control setTitleTextAttributes:@{NSForegroundColorAttributeName:AQWSilver()} forState:UIControlStateNormal];
-    [control setTitleTextAttributes:@{NSForegroundColorAttributeName:AQWCharcoal(), NSFontAttributeName:[UIFont systemFontOfSize:14 weight:UIFontWeightSemibold]} forState:UIControlStateSelected];
+    UIStackView *control = [UIStackView new];
+    control.axis = UILayoutConstraintAxisHorizontal; control.distribution = UIStackViewDistributionFillEqually;
+    control.spacing = 2; control.layoutMargins = UIEdgeInsetsMake(2,2,2,2); control.layoutMarginsRelativeArrangement = YES;
+    control.accessibilityIdentifier = field;
     NSString *current = self.rule[field];
-    if ([field isEqual:@"unit"] && !current) current=@"percent";
-    if ([field isEqual:@"op"] && [current isEqual:@"stacks"]) current=@"gte";
-    NSUInteger index = [codes indexOfObject:current];
-    control.selectedSegmentIndex = index == NSNotFound ? UISegmentedControlNoSegment : (NSInteger)index;
-    [control addTarget:self action:@selector(change:) forControlEvents:UIControlEventValueChanged];
+    if ([field isEqual:@"unit"] && !current) current = @"percent";
+    if ([field isEqual:@"op"] && [current isEqual:@"stacks"]) current = @"gte";
+    NSDictionary *spoken = @{@"raw":@"Points",@"percent":@"Percent",@"lte":@"At most",@"gte":@"At least",
+        @"below":@"Less than",@"above":@"Greater than"};
+    for (NSString *code in codes) {
+        BOOL selected = [current isEqual:code];
+        UIButton *option = [UIButton buttonWithType:UIButtonTypeCustom];
+        option.accessibilityIdentifier = code;
+        option.accessibilityLabel = spoken[code] ?: labels[code];
+        option.accessibilityTraits = UIAccessibilityTraitButton | (selected ? UIAccessibilityTraitSelected : 0);
+        [option setTitle:labels[code] forState:UIControlStateNormal];
+        [option setTitleColor:selected ? AQWCharcoal() : AQWSilver() forState:UIControlStateNormal];
+        option.titleLabel.font = [UIFont systemFontOfSize:14 weight:selected ? UIFontWeightSemibold : UIFontWeightRegular];
+        option.titleLabel.adjustsFontSizeToFitWidth = YES; option.titleLabel.minimumScaleFactor = .85;
+        option.backgroundColor = selected ? AQWSilver() : AQWCharcoal();
+        option.layer.cornerRadius = 8; option.layer.borderWidth = 1.0 / UIScreen.mainScreen.scale;
+        option.layer.borderColor = (selected ? AQWSilver() : AQWKeyline()).CGColor;
+        [option addTarget:self action:@selector(change:) forControlEvents:UIControlEventTouchUpInside];
+        [control addArrangedSubview:option];
+    }
     UITableViewCell *row = cell(title,nil,NO);
     row.selectionStyle = UITableViewCellSelectionStyleNone;
     if (title) {
-        CGFloat width = codes.count > 2 ? 190 : 120;
-        control.frame = CGRectMake(0,0,width,44); row.accessoryView = control;
+        CGFloat width = codes.count > 2 ? 200 : 120;
+        control.frame = CGRectMake(0,0,width,48); row.accessoryView = control;
     } else {
         control.translatesAutoresizingMaskIntoConstraints = NO;
         [row.contentView addSubview:control];
@@ -237,13 +247,13 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
             [control.trailingAnchor constraintEqualToAnchor:margin.trailingAnchor],
             [control.topAnchor constraintEqualToAnchor:row.contentView.topAnchor constant:4],
             [control.bottomAnchor constraintEqualToAnchor:row.contentView.bottomAnchor constant:-4],
-            [control.heightAnchor constraintEqualToConstant:44]
+            [control.heightAnchor constraintEqualToConstant:48]
         ]];
     }
     return row;
 }
-- (void)change:(UISegmentedControl *)control {
-    NSString *field = control.accessibilityIdentifier, *choice = [self codesFor:field][control.selectedSegmentIndex];
+- (void)change:(UIButton *)option {
+    NSString *field = option.superview.accessibilityIdentifier, *choice = option.accessibilityIdentifier;
     if ([field isEqual:@"kind"]) {
         BOOL wasAura = self.aura;
         self.rule[@"kind"] = choice;
@@ -291,7 +301,7 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
     } else [self.rule removeObjectForKey:entry.accessibilityIdentifier];
 }
 - (BOOL)textFieldShouldReturn:(UITextField *)field { [field resignFirstResponder]; return YES; }
-- (CGFloat)tableView:(UITableView *)table heightForRowAtIndexPath:(NSIndexPath *)p { return p.section == 0 ? 54 : 52; }
+- (CGFloat)tableView:(UITableView *)table heightForRowAtIndexPath:(NSIndexPath *)p { return p.section == 0 ? 56 : 52; }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)p {
     if (p.section == 0) return [self segments:@"kind" title:nil];
     if (p.section == 2) return removeCell(@"Remove condition");
