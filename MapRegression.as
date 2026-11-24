@@ -118,8 +118,57 @@ package {
                 need(used.length==count+2 && used[used.length-1]===4,"confirmed hotbar and class");
                 mage.bEquip=0; bot.tick(); need(!bot.running,"changing class stops");
                 note("PROFILE_CHECK passed: bag isolation, shared class keys, equip acknowledgement, aura stacks/expiry, HP/MP, all/any and skip");
-                note("BOT_CHECK passed: edge controls, both sides, ordered skills, targeting, cooldowns and stop");
+                checkResourceRules();
+                note("RULE_CHECK passed: inclusive points/percent, party membership and room, named aura stacks and saved rule modes");
+                note("BOT_CHECK passed: right edge controls, ordered skills, targeting, cooldowns and stop");
             } finally { bot.dispose(); }
+        }
+
+        private static function checkResourceRules():void {
+            var self:Object = {dataLeaf:{intHP:70000,intHPMax:200000,intMP:80,intMPMax:200}};
+            var target:Object = {dataLeaf:{intHP:1200000,intMP:0,hudAuras:{"Battle Focus":{n:3,end:0}}}};
+            var ally:Object = {strFrame:"A",intHP:180,intHPMax:600};
+            var world:Object = {myAvatar:self,strFrame:"A",partyMembers:["Me","AlLy","Away","Dead","Unseen"],
+                uoTree:{me:{strFrame:"A",intHP:1},ally:ally,away:{strFrame:"B",intHP:1,intHPMax:100},
+                    dead:{strFrame:"A",intHP:0,intHPMax:50},stranger:{strFrame:"A",intHP:1,intHPMax:100}}};
+            var game:Object = {world:world,sfc:{myUserName:"Me"}};
+            var step:Object = {slot:2,wait:true,match:"all",rules:[]};
+            function condition(kind:String, who:String, op:String, unit:String, value:int):Object {
+                return {kind:kind,who:who,op:op,unit:unit,value:value};
+            }
+            function expect(rule:Object, yes:Boolean, detail:String):void {
+                step.rules=[rule];
+                if (!SkillRules.valid([step]) || SkillRules.allows(step,game,target) != yes) throw new Error("Rule: "+detail);
+            }
+            var hp:Object=condition("hp","self","lte","percent",35);
+            var mana:Object=condition("mp","self","gte","raw",80);
+            var party:Object=condition("partyhp","party","lte","percent",30);
+            expect(hp,true,"equal health percent"); self.dataLeaf.intHP++; expect(hp,false,"one point above threshold");
+            expect(mana,true,"equal mana points"); mana.value=81; expect(mana,false,"mana below threshold");
+            expect(condition("mp","self","gte","percent",40),true,"mana percent equality");
+            expect(condition("hp","target","gte","raw",1200000),true,"large points without max");
+            expect(condition("hp","target","gte","percent",1),false,"unknown max");
+            expect(condition("mp","target","lte","raw",0),true,"zero is observed");
+            delete target.dataLeaf.intMP; expect(condition("mp","target","lte","raw",0),false,"missing is not zero");
+            expect(party,true,"equal party health");
+            expect(condition("partyhp","party","gte","raw",180),true,"party points");
+            ally.strFrame="B"; expect(party,false,"exclude self, outsider, dead and other rooms");
+            ally.strFrame="A"; world.partyMembers=[]; expect(party,false,"empty party");
+            var aura:Object={kind:"aura",who:"target",name:" battle FOCUS ",op:"lte",value:3};
+            expect(aura,true,"named aura at most"); aura.op="gte"; expect(aura,true,"exact stacks");
+            aura.value=4; expect(aura,false,"insufficient stacks");
+            aura.name="Absent"; aura.op="lte"; aura.value=0; expect(aura,true,"observed zero stacks");
+            delete target.dataLeaf.hudAuras; expect(aura,false,"no aura snapshot");
+            self.dataLeaf.intHP=70000;
+            expect({kind:"hp",who:"self",op:"below",value:35},false,"legacy less than stays strict");
+            expect({kind:"mp",who:"self",op:"above",value:40},false,"legacy greater than stays strict");
+            step.rules=[hp,mana]; step.match="any";
+            if (!SkillRules.allows(step,game,target)) throw new Error("Rule: any");
+            step.match="all"; if (SkillRules.allows(step,game,target)) throw new Error("Rule: all");
+            step.rulesEnabled=false; if (!SkillRules.valid([step]) || !SkillRules.allows(step,game,target)) throw new Error("Rule: off");
+            step.rulesEnabled=true; if (SkillRules.allows(step,game,target)) throw new Error("Rule: enabled again");
+            step.rules=[condition("hp","self","lte","percent",101)]; if (SkillRules.valid([step])) throw new Error("Rule: invalid percent");
+            step.rules=[condition("partyhp","target","lte","raw",1)]; if (SkillRules.valid([step])) throw new Error("Rule: invalid party subject");
         }
 
         // Read the attached client first. Exercise two distinct names and logout
