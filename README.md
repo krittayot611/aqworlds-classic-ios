@@ -13,9 +13,13 @@ An unofficial iOS and iPadOS client for AQWorlds Classic.
 | Channel | Version | IPA |
 | --- | --- | --- |
 | Stable | 1 | [Download Classic IPA (no bot)](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1/AQWorlds-Classic-1.ipa) |
-| Unstable | 1.1.5 | [Download IPA with skill automation](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.5-unstable/AQWorlds-Classic-1.1.5-unstable.ipa) |
+| Unstable | 1.1.6 | [Download IPA with skill and map tools](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.6-unstable/AQWorlds-Classic-1.1.6-unstable.ipa) |
 
-Classic 1 uses manual touch controls. iOS displays it as **1.0.0**. In 1.1.5, open **Skills** on the right edge to set up an optional rotation.
+Classic 1 uses manual touch controls. iOS displays it as **1.0.0**. Open **Skills** on the right edge in 1.1.6 to use these tools.
+
+- **Skill sets** show class abilities numbered 1–4 with their in-game names. Equip a class once to load its names on this device. Saved rotations keep their original casting order. Starting a rotation approaches the selected monster using the game's normal attack range.
+- **Mobs** lists monsters across the loaded map and shows their cells. Tap a monster to approach it in the current cell or travel toward its cell using the game's Go To and available exits.
+- **Mark Map** saves the current map instance, cell and entry pad on this device. Select a bookmark to go there or delete it. Returning to a different instance uses the normal map entrance, then follows available exits or the saved route. If travel stops, the drawer shows the destination to follow in-game.
 
 <details>
 <summary>Version history and earlier downloads</summary>
@@ -28,6 +32,7 @@ Classic 1 uses manual touch controls. iOS displays it as **1.0.0**. In 1.1.5, op
 | [1.1.3](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.3-unstable) | 0.1.12 | Saved skill sets by class |
 | [1.1.4](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.4-unstable) | 0.1.13 | Health, mana and named aura conditions |
 | [1.1.5](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.5-unstable) | 0.1.14 | Cooldown switches and swipe to delete |
+| [1.1.6](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.6-unstable) | — | Named skills, map monsters and bookmarks |
 
 </details>
 
@@ -68,8 +73,8 @@ Install the IPA with [Sideloadly](https://sideloadly.io/) on Windows or macOS.
 
 | Platform | Requirements | Status |
 | --- | --- | --- |
-| iPhone | 64-bit device, iOS 12.0 or later | iOS build available |
-| iPad | 64-bit device, iOS 12.0 or later, or iPadOS | iOS build available |
+| iPhone | 64-bit device, iOS 12.0 or later (12.2 for Unstable 1.1.6) | iOS build available |
+| iPad | 64-bit device, iOS 12.0 or later (12.2 for Unstable 1.1.6), or iPadOS | iOS build available |
 | 32-bit iOS devices | — | Not supported |
 | Android | — | No build provided by this project |
 | Windows, macOS and Linux | — | No desktop game build provided |
