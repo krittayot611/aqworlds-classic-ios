@@ -13,7 +13,7 @@ An unofficial iOS and iPadOS client for AQWorlds Classic.
 | Channel | Version | IPA |
 | --- | --- | --- |
 | Stable | 0.1.9 | [Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.9/AQWorlds-Classic-0.1.9.ipa) |
-| Unstable | 0.1.12 | [Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.12-unstable/AQWorlds-Classic-0.1.12-unstable.ipa) |
+| Unstable | 0.1.13 | [Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.13-unstable/AQWorlds-Classic-0.1.13-unstable.ipa) |
 
 **Stable** — The full release for iPhone and iPad.
 
@@ -26,6 +26,12 @@ AQWorlds Classic is an independent client for the original AdventureQuest Worlds
 Artix's [experimental launcher](https://www.artix.com/experiments/ArtixExperimentalLauncher) already provides Android access. This project was created to give iOS and iPadOS players a practical way to play the classic game, with touch controls and a sideloadable app.
 
 The client loads official game content and connects to the existing AQWorlds servers. An internet connection and an existing AQWorlds account are required.
+
+## Login and account privacy
+
+Sign in on the official AQWorlds login screen inside the app. The game sends your login directly to Artix at `game.aq.com` over HTTPS. The iOS launcher does not store or log your AQWorlds username or password, or send either to a server run by this project. [View the login configuration](https://github.com/krittayot611/aqworlds-classic-ios/blob/a1ca22548169227072808189a3fa4f94f2ed5b23/Main.as#L324)
+
+The game has its own options to remember your username and password on this device. Leave both unchecked if you do not want the game to remember your login. HTTPS protects the connection to Artix. A modified IPA or a compromised device can still expose your credentials.
 
 ## Development status
 
@@ -59,6 +65,8 @@ Install the IPA with [Sideloadly](https://sideloadly.io/) on Windows or macOS.
 Windows and macOS are supported as installation hosts through Sideloadly. Device compatibility testing is ongoing.
 
 ## Disclaimer
+
+**Play at your own risk.** This is a third-party client with optional skill automation. Artix prohibits botting and third-party programs and may terminate accounts for violating those rules. [AQWorlds Rules and Guidelines](https://www.aq.com/lore/guides/AQWRules)
 
 AQWorlds and its game content, artwork and trademarks belong to Artix Entertainment. This is an independent, unofficial project, with no affiliation, endorsement or support from Artix Entertainment.
 
