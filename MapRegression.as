@@ -99,6 +99,23 @@ package {
                 need(!SkillRules.valid([step(3,[{kind:"aura",who:"target",name:"",op:"missing"}])]),"blank aura rejected");
                 need(!SkillRules.valid([step(3,[{kind:"hp",who:"self",op:"below",value:110}])]),"invalid percent rejected");
                 bar[1].lock=false; bar[2].ts=new Date().time; bar[2].cd=50000;
+                count=used.length;
+                var readyStep:Object=step(4,[aura],false);
+                readyStep.rulesEnabled=false;
+                bar[2].isOK=false;
+                bot.start([step(3,[],true),readyStep],false,"11",sid);
+                need(used.length==count && state=="Waiting for skill 3","on holds the current cooling slot");
+                bar[2].isOK=true; bar[2].ts=0;
+                bot.tick(); need(used.length==count+1 && used[count]===3,"on resumes on the same slot");
+                bot.stop(); bar[2].ts=new Date().time;
+                bar[3].ts=new Date().time; bar[3].cd=50000;
+                bot.start([step(3,[],false),readyStep],false,"11",sid);
+                need(used.length==count+1 && bot.running,"off waits only when nothing is ready");
+                bar[3].ts=0; bot.tick();
+                need(used.length==count+2 && used[count+1]===4,"off uses the next ready slot with disabled conditions");
+                bar[2].ts=0; bot.tick();
+                need(used.length==count+3 && used[count+2]===3,"off revisits the skipped slot");
+                bot.stop(); bar[2].ts=new Date().time;
                 count=used.length; bot.start([stacked,step(3,[],false),step(4)],false,"11",sid);
                 need(used.length==count+1 && used[count]===4,"skip unmet conditions and cooling skill");
                 game.sfc.myUserName="Two"; bot.tick();
@@ -119,6 +136,7 @@ package {
                 mage.bEquip=0; bot.tick(); need(!bot.running,"changing class stops");
                 note("PROFILE_CHECK passed: bag isolation, shared class keys, equip acknowledgement, aura stacks/expiry, HP/MP, all/any and skip");
                 checkResourceRules();
+                note("STEP_CHECK passed: wait on/off, use the next ready skill, retry a skipped slot and disabled conditions");
                 note("RULE_CHECK passed: inclusive points/percent, party membership and room, named aura stacks and saved rule modes");
                 note("BOT_CHECK passed: right edge controls, ordered skills, targeting, cooldowns and stop");
             } finally { bot.dispose(); }
