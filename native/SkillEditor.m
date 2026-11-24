@@ -174,6 +174,9 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
         [self.tableView scrollToRowAtIndexPath:p atScrollPosition:UITableViewScrollPositionMiddle animated:NO];
         [self.tableView layoutIfNeeded];
         UITableViewCell *row = [self.tableView cellForRowAtIndexPath:p];
+        row.detailTextLabel.text = [field isEqual:@"name"] ? @"Enter an aura name" : [NSString stringWithFormat:@"Use 0–%ld",(long)self.maximum];
+        row.detailTextLabel.textColor = AQWStopColor();
+        [row setNeedsLayout];
         [row.accessoryView becomeFirstResponder];
         UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification,[field isEqual:@"name"] ? @"Enter the in-game aura name" :
             [NSString stringWithFormat:@"Enter a whole number from 0 to %ld",(long)self.maximum]);
@@ -208,6 +211,7 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
     NSMutableArray *items = [NSMutableArray array];
     for (NSString *code in codes) [items addObject:labels[code]];
     UISegmentedControl *control = [[UISegmentedControl alloc] initWithItems:items];
+    if (self.aura && [field isEqual:@"op"]) control.apportionsSegmentWidthsByContent = YES;
     control.accessibilityIdentifier = field; control.accessibilityLabel = title ?: @"Rule type";
     control.tintColor = AQWSilver();
     if (@available(iOS 13.0,*)) { control.selectedSegmentTintColor = AQWSilver(); control.backgroundColor = AQWCharcoal(); }
@@ -281,8 +285,10 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
         text.length <= 10 && [text rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"0123456789"].invertedSet].location == NSNotFound &&
         text.longLongValue <= self.maximum);
     entry.textColor = valid || !text.length ? UIColor.whiteColor : AQWStopColor();
-    if (valid) self.rule[entry.accessibilityIdentifier] = name ? (id)text : @(text.longLongValue);
-    else [self.rule removeObjectForKey:entry.accessibilityIdentifier];
+    if (valid) {
+        self.rule[entry.accessibilityIdentifier] = name ? (id)text : @(text.longLongValue);
+        if (!name && self.aura && [self.rule[@"op"] isEqual:@"stacks"]) self.rule[@"op"] = @"gte";
+    } else [self.rule removeObjectForKey:entry.accessibilityIdentifier];
 }
 - (BOOL)textFieldShouldReturn:(UITextField *)field { [field resignFirstResponder]; return YES; }
 - (CGFloat)tableView:(UITableView *)table heightForRowAtIndexPath:(NSIndexPath *)p { return p.section == 0 ? 54 : 52; }

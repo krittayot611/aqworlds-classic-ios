@@ -383,6 +383,7 @@ static void finishPage(UIViewController *page) {
 }
 static void captureRuleForm(UITableViewController *page) {
     page.view.frame=CGRectMake(0,0,510,430);
+    [page.tableView reloadData];
     [page.view layoutIfNeeded];
     UIGraphicsImageRenderer *renderer=[[UIGraphicsImageRenderer alloc] initWithSize:page.view.bounds.size];
     UIImage *preview=[renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
