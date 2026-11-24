@@ -189,7 +189,9 @@ package {
             nav.begin(game,mark,"5",1,60); expect(targets==2 && !nav.active,"approach selected monster");
             w.strAreaName="other-2";
             expect(nav.begin(game,mark,"5",1,65).indexOf("Map changed")==0 && !nav.active,"stale mob selection");
-            nav.begin(game,mark,null,1,70); nav.observe(game,2,80);
+            nav.begin(game,mark,null,1,70);
+            nav.observe(game,2,75); expect(nav.active,"preserve a join across an avatar replacement");
+            game.sfc.myUserName = "Other"; nav.observe(game,3,80);
             expect(!nav.active,"stop on account switch");
             w.mapLoadInProgress=true; expect(!nav.bookmark(game),"ignore incomplete map transitions");
         }
