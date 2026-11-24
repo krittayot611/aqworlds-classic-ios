@@ -98,7 +98,7 @@ package {
             gameLoader.contentLoaderInfo.addEventListener(
                 SecurityErrorEvent.SECURITY_ERROR, onLoadError
             );
-            writeStartup("Touch client 0.1.9: loading screen ready");
+            writeStartup("Touch client 1: loading screen ready");
             try {
                 centerStage();
                 stage.addEventListener(Event.RESIZE, centerStage);

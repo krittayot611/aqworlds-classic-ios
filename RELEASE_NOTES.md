@@ -1,6 +1,6 @@
-AQWorlds Classic 0.1.9 is the Stable release for iOS and iPadOS.
+AQWorlds Classic 1 is the stable Classic edition for iOS and iPadOS. It uses manual touch controls and includes no bot or skill automation.
 
-**[Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.9/AQWorlds-Classic-0.1.9.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
+**[Download Classic IPA (no bot)](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1/AQWorlds-Classic-1.ipa)** · [Installation guide](https://github.com/krittayot611/aqworlds-classic-ios#installation)
 
 ### Changes
 
