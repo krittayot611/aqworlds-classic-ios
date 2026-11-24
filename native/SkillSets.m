@@ -4,19 +4,22 @@ NSDictionary *AQWStep(NSNumber *slot) {
     return @{@"slot":slot, @"wait":@YES, @"match":@"all", @"rules":@[]};
 }
 NSString *AQWRuleTitle(NSDictionary *r) {
+    NSDictionary *symbols = @{@"below":@"<", @"above":@">", @"lte":@"≤", @"gte":@"≥", @"stacks":@"≥"};
     NSString *subject = [r[@"who"] isEqual:@"self"] ? @"Self" : @"Target";
+    NSString *op = r[@"op"];
     if ([r[@"kind"] isEqual:@"aura"]) {
-        NSString *op = r[@"op"];
-        NSString *detail = [op isEqual:@"missing"] ? @"absent" : [op isEqual:@"stacks"]
-            ? [NSString stringWithFormat:@"≥ %@ stacks",r[@"value"]] : @"present";
+        NSString *detail = [op isEqual:@"missing"] ? @"absent" : [op isEqual:@"present"] ? @"present" :
+            [NSString stringWithFormat:@"%@ %@ stacks",symbols[op],r[@"value"]];
         return [NSString stringWithFormat:@"%@ · %@ %@",subject,r[@"name"],detail];
     }
-    return [NSString stringWithFormat:@"%@ %@ %@ %@%%",subject,[r[@"kind"] uppercaseString],
-            [r[@"op"] isEqual:@"below"] ? @"<" : @">",r[@"value"]];
+    NSString *metric = [r[@"kind"] isEqual:@"partyhp"] ? @"Party HP" :
+        [NSString stringWithFormat:@"%@ %@",subject,[r[@"kind"] isEqual:@"hp"] ? @"health" : @"mana"];
+    return [NSString stringWithFormat:@"%@ %@ %@%@",metric,symbols[op],r[@"value"],[r[@"unit"] isEqual:@"raw"] ? @" points" : @"%"];
 }
 NSString *AQWStepSummary(NSDictionary *step) {
     NSArray *rules = step[@"rules"];
     if (!rules.count) return @"Always";
+    if ([step[@"rulesEnabled"] isEqual:@NO]) return @"Rules off";
     NSMutableArray *titles = [NSMutableArray array];
     for (NSDictionary *r in rules) [titles addObject:AQWRuleTitle(r)];
     return [titles componentsJoinedByString:[step[@"match"] isEqual:@"any"] ? @" OR " : @" AND "];

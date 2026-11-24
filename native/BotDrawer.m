@@ -2,12 +2,7 @@
 #import "SkillEditor.h"
 #import "SkillSets.h"
 #import <QuartzCore/QuartzCore.h>
-
-static UIColor *ink(void) { return [UIColor colorWithRed:.07 green:.09 blue:.12 alpha:1]; }
-static UIColor *surface(void) { return [UIColor colorWithRed:.13 green:.16 blue:.20 alpha:1]; }
-static UIColor *gold(void) { return [UIColor colorWithRed:.98 green:.79 blue:.42 alpha:1]; }
-static UIColor *muted(void) { return [UIColor colorWithRed:.74 green:.78 blue:.82 alpha:1]; }
-static UIColor *coral(void) { return [UIColor colorWithRed:1 green:.63 blue:.57 alpha:1]; }
+#import "SkillTheme.h"
 
 static UILabel *label(NSString *text, CGFloat size, UIFontWeight weight, UIColor *color) {
     UILabel *view = [UILabel new];
@@ -24,8 +19,10 @@ static UIButton *button(NSString *title, NSString *spoken, id target, SEL action
     [view setTitle:title forState:UIControlStateNormal];
     [view setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
     view.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
-    view.backgroundColor = surface();
+    view.backgroundColor = AQWPanel();
     view.layer.cornerRadius = 10;
+    view.layer.borderWidth = 1.0 / UIScreen.mainScreen.scale;
+    view.layer.borderColor = AQWKeyline().CGColor;
     view.accessibilityLabel = spoken;
     [view addTarget:target action:action forControlEvents:UIControlEventTouchUpInside];
     [view.heightAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
@@ -41,13 +38,13 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
 
 @interface AQWBotDrawer ()
 @property(nonatomic, copy) AQWBotCommand command;
-@property(nonatomic) BOOL left, expanded, running, pending, autoTarget, pickingClass;
+@property(nonatomic) BOOL expanded, running, pending, autoTarget, pickingClass;
 @property(nonatomic,strong) AQWSkillSets *sets;
 @property(nonatomic,strong) NSArray<NSDictionary *> *classes;
 @property(nonatomic,copy) NSString *classID, *equipped;
 @property(nonatomic,strong) NSNumber *session;
 @property(nonatomic,weak) UIViewController *modal;
-@property(nonatomic,strong) UIButton *handle, *quickRun, *run, *changeSide, *map, *chooseClass, *chooseSet, *addSet, *editSet, *deleteSet;
+@property(nonatomic,strong) UIButton *handle, *quickRun, *run, *map, *chooseClass, *chooseSet, *addSet, *editSet, *deleteSet;
 @property(nonatomic,strong) UILabel *stateLine, *order, *dot;
 @property(nonatomic,strong) NSArray<UIButton *> *targets;
 @property(nonatomic,strong) UIView *card;
@@ -59,30 +56,29 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     if (!(self = [super initWithFrame:frame])) return nil;
     self.command = command;
     NSUserDefaults *prefs = NSUserDefaults.standardUserDefaults;
-    self.left = [prefs boolForKey:@"aqw.drawer.left"];
     self.autoTarget = [prefs boolForKey:@"aqw.rotation.auto"];
     self.sets = [[AQWSkillSets alloc] initWithDefaults:prefs];
     self.classes = @[];
     self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.backgroundColor = UIColor.clearColor;
     self.handle = button(@"Skills", @"Open skill automation", self, @selector(toggle:));
-    self.handle.titleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightHeavy];
-    self.handle.backgroundColor = ink();
-    self.handle.layer.borderWidth = 1.5;
-    self.handle.layer.borderColor = gold().CGColor;
-    self.handle.layer.cornerRadius = 15;
-    [self.handle setTitleColor:gold() forState:UIControlStateNormal];
+    self.handle.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
+    self.handle.backgroundColor = AQWCharcoal();
+    self.handle.layer.borderWidth = 1;
+    self.handle.layer.borderColor = AQWSilver().CGColor;
+    self.handle.layer.cornerRadius = 12;
+    [self.handle setTitleColor:AQWSilver() forState:UIControlStateNormal];
     self.quickRun = button(@"▶", @"Start skill set", self, @selector(runTapped:));
-    self.quickRun.backgroundColor = coral();
-    [self.quickRun setTitleColor:ink() forState:UIControlStateNormal];
+    self.quickRun.backgroundColor = AQWStopColor();
+    [self.quickRun setTitleColor:AQWCharcoal() forState:UIControlStateNormal];
     [self addSubview:self.handle];
     [self addSubview:self.quickRun];
 
     self.card = [UIView new];
-    self.card.backgroundColor = ink();
+    self.card.backgroundColor = AQWCharcoal();
     self.card.layer.cornerRadius = 18;
     self.card.layer.borderWidth = 1;
-    self.card.layer.borderColor = [gold() colorWithAlphaComponent:.48].CGColor;
+    self.card.layer.borderColor = AQWKeyline().CGColor;
     self.card.layer.shadowColor = UIColor.blackColor.CGColor;
     self.card.layer.shadowOpacity = .32;
     self.card.layer.shadowOffset = CGSizeMake(0, 4);
@@ -90,21 +86,26 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     [self addSubview:self.card];
     UILabel *title = label(@"Skill automation", 20, UIFontWeightBold, UIColor.whiteColor);
     title.accessibilityTraits |= UIAccessibilityTraitHeader;
-    self.changeSide = button(@"⇄", @"Move controls to the other edge", self, @selector(flip:));
-    [self.changeSide.widthAnchor constraintEqualToConstant:44].active = YES;
-    UIStackView *header = stack(@[title,self.changeSide], YES, 8);
+    UIStackView *header = stack(@[title], YES, 9);
+    if (@available(iOS 13.0,*)) {
+        UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"slider.horizontal.3"]];
+        icon.contentMode = UIViewContentModeScaleAspectFit; icon.tintColor = AQWSilver();
+        [icon.widthAnchor constraintEqualToConstant:22].active = YES;
+        [icon.heightAnchor constraintEqualToConstant:22].active = YES;
+        [header insertArrangedSubview:icon atIndex:0];
+    }
     header.alignment = UIStackViewAlignmentCenter;
-    self.dot = label(@"●", 12, UIFontWeightBold, muted());
+    self.dot = label(@"●", 12, UIFontWeightBold, AQWSecondary());
     self.dot.isAccessibilityElement = NO;
     [self.dot setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
-    self.stateLine = label(@"Ready", 14, UIFontWeightSemibold, muted());
+    self.stateLine = label(@"Ready", 14, UIFontWeightSemibold, AQWSecondary());
     self.stateLine.numberOfLines = 2;
     UIStackView *status = stack(@[self.dot,self.stateLine], YES, 7);
     self.map = button(@"Read current map  ↻", @"Read current map", self, @selector(mapTapped:));
     self.map.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
     self.map.contentEdgeInsets = UIEdgeInsetsMake(0,12,0,12);
     self.map.titleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
-    [self.map setTitleColor:muted() forState:UIControlStateNormal];
+    [self.map setTitleColor:AQWSecondary() forState:UIControlStateNormal];
     UIButton *selected = button(@"Selected", @"Use the selected monster", self, @selector(targetTapped:));
     UIButton *room = button(@"Auto in room", @"Find a monster in this room", self, @selector(targetTapped:));
     room.tag = 1;
@@ -122,13 +123,13 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     self.addSet = button(@"＋ Add", @"Add skill set", self, @selector(addTapped:));
     self.editSet = button(@"Edit", @"Edit skill set", self, @selector(editTapped:));
     self.deleteSet = button(@"Delete", @"Delete selected skill set", self, @selector(deleteTapped:));
-    [self.deleteSet setTitleColor:coral() forState:UIControlStateNormal];
+    [self.deleteSet setTitleColor:AQWStopColor() forState:UIControlStateNormal];
     UIStackView *actions = stack(@[self.addSet,self.editSet,self.deleteSet], YES, 5);
     actions.distribution = UIStackViewDistributionFillEqually;
-    self.order = label(@"",14,UIFontWeightMedium,gold()); self.order.numberOfLines = 2;
-    UIStackView *body = stack(@[label(@"Bag class",13,UIFontWeightSemibold,muted()),self.chooseClass,
-        label(@"Skill set",13,UIFontWeightSemibold,muted()),self.chooseSet,self.order,actions,
-        label(@"Target",13,UIFontWeightSemibold,muted()),targetRow,self.map],NO,5);
+    self.order = label(@"",14,UIFontWeightMedium,AQWSilver()); self.order.numberOfLines = 2;
+    UIStackView *body = stack(@[label(@"Bag class",13,UIFontWeightSemibold,AQWSecondary()),self.chooseClass,
+        label(@"Skill set",13,UIFontWeightSemibold,AQWSecondary()),self.chooseSet,self.order,actions,
+        label(@"Target",13,UIFontWeightSemibold,AQWSecondary()),targetRow,self.map],NO,5);
     self.scroll = [UIScrollView new];
     self.scroll.showsHorizontalScrollIndicator = NO;
     self.scroll.indicatorStyle = UIScrollViewIndicatorStyleWhite;
@@ -143,7 +144,7 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     ]];
     self.run = button(@"Start rotation", @"Start rotation", self, @selector(runTapped:));
     self.run.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
-    [self.run setTitleColor:ink() forState:UIControlStateNormal];
+    [self.run setTitleColor:AQWCharcoal() forState:UIControlStateNormal];
     UIStackView *content = stack(@[header,status,self.scroll,self.run], NO, 8);
     [self.card addSubview:content];
     content.translatesAutoresizingMaskIntoConstraints = NO;
@@ -168,15 +169,14 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     self.handle.accessibilityLabel = self.expanded ? @"Close skill automation" : @"Open skill automation";
     self.handle.accessibilityValue = self.running ? @"Running" : @"Stopped";
     [self.handle setTitle:self.expanded ? @"Close" : @"Skills" forState:UIControlStateNormal];
-    self.handle.layer.borderColor = (self.running ? coral() : gold()).CGColor;
-    [self.handle setTitleColor:self.running ? coral() : gold() forState:UIControlStateNormal];
-    self.changeSide.accessibilityLabel = self.left ? @"Move controls to the right edge" : @"Move controls to the left edge";
-    self.dot.textColor = self.running ? gold() : muted();
+    self.handle.layer.borderColor = (self.running ? AQWStopColor() : AQWSecondary()).CGColor;
+    [self.handle setTitleColor:self.running ? AQWStopColor() : AQWSilver() forState:UIControlStateNormal];
+    self.dot.textColor = self.running ? [UIColor colorWithRed:.58 green:.83 blue:.69 alpha:1] : AQWSecondary();
     for (UIButton *b in self.targets) {
         BOOL active = (b.tag == (NSInteger)self.autoTarget);
         b.enabled = configurable;
-        b.backgroundColor = active ? gold() : surface();
-        [b setTitleColor:active ? ink() : muted() forState:UIControlStateNormal];
+        b.backgroundColor = active ? AQWSilver() : AQWPanel();
+        [b setTitleColor:active ? AQWCharcoal() : AQWSecondary() forState:UIControlStateNormal];
         b.accessibilityTraits = UIAccessibilityTraitButton | (active ? UIAccessibilityTraitSelected : 0);
     }
     [self.chooseClass setTitle:name.length ? [name stringByAppendingString:@"  ▾"] : @"No bag classes" forState:UIControlStateNormal];
@@ -193,7 +193,7 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     NSString *verb = self.running ? @"Stop" : [self.classID isEqual:self.equipped] || !name ? @"Start" : @"Equip & start";
     [self.run setTitle:self.pending ? @"One moment…" : verb forState:UIControlStateNormal];
     self.run.accessibilityLabel = verb;
-    self.run.backgroundColor = self.quickRun.backgroundColor = self.running ? coral() : gold();
+    self.run.backgroundColor = self.quickRun.backgroundColor = self.running ? AQWStopColor() : AQWSilver();
     self.quickRun.accessibilityLabel = verb;
     [self.quickRun setTitle:self.running ? @"■" : @"▶" forState:UIControlStateNormal];
     self.run.enabled = !self.pending && (self.running || canStart);
@@ -208,20 +208,20 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     CGFloat w = CGRectGetWidth(self.bounds), h = CGRectGetHeight(self.bounds);
     CGFloat scale = MIN(w/960., h/550.);
     CGFloat sideGutter = (w - 960.*scale)/2., topGutter = (h - 550.*scale)/2.;
-    CGFloat x = self.left ? CGRectGetMinX(safe)+4 : CGRectGetMaxX(safe)-56;
+    CGFloat x = CGRectGetMaxX(safe)-56;
     CGFloat y = CGRectGetMinY(safe)+8;
     if (sideGutter >= 64) {
         // The upper corner is clear of the centered landscape camera cutout.
         // Use the actual artwork gutter so the collapsed tab stays off the game.
         CGFloat offset = (sideGutter-52)/2.;
-        x = self.left ? offset : w-offset-52;
+        x = w-offset-52;
         y = MAX(y,MIN(24., h*.08));
     } else if (topGutter > CGRectGetMinY(safe)+52)
         y = CGRectGetMinY(safe) + (topGutter-CGRectGetMinY(safe)-44)/2.;
     self.handle.frame = CGRectIntegral(CGRectMake(x,y,52,44));
     self.quickRun.frame = CGRectIntegral(CGRectMake(x,y+48,52,44));
     CGFloat panelWidth = MIN(286, CGRectGetWidth(safe)-70);
-    CGFloat px = self.left ? CGRectGetMaxX(self.handle.frame)+6 : CGRectGetMinX(self.handle.frame)-6-panelWidth;
+    CGFloat px = CGRectGetMinX(self.handle.frame)-6-panelWidth;
     CGFloat height = MIN(478, CGRectGetHeight(safe)-16);
     CGFloat py = MAX(CGRectGetMinY(safe)+8,MIN(y,CGRectGetMaxY(safe)-height-8));
     self.card.frame = CGRectIntegral(CGRectMake(px,py,panelWidth,height));
@@ -245,14 +245,9 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
         }
     }
     if (changed && self.window)
-        UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification,expanded ? self.changeSide : self.handle);
+        UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification,expanded ? self.chooseClass : self.handle);
 }
 - (void)toggle:(id)sender { [self setExpanded:!self.expanded]; }
-- (void)flip:(id)sender {
-    self.left = !self.left;
-    [NSUserDefaults.standardUserDefaults setBool:self.left forKey:@"aqw.drawer.left"];
-    [self refresh];
-}
 - (void)targetTapped:(UIButton *)sender {
     self.autoTarget = sender.tag == 1;
     [NSUserDefaults.standardUserDefaults setBool:self.autoTarget forKey:@"aqw.rotation.auto"];
@@ -359,11 +354,51 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     [self refresh];
 }
 
+static UIControl *ruleField(UITableViewController *editor, NSString *key) {
+    UITableView *table=editor.tableView;
+    for (NSInteger section=0; section<2; section++) {
+        for (NSInteger i=0; i<[editor tableView:table numberOfRowsInSection:section]; i++) {
+            UITableViewCell *row=[editor tableView:table cellForRowAtIndexPath:[NSIndexPath indexPathForRow:i inSection:section]];
+            if ([row.accessoryView.accessibilityIdentifier isEqual:key]) return (UIControl *)row.accessoryView;
+            for (UIView *item in row.contentView.subviews)
+                if ([item.accessibilityIdentifier isEqual:key]) return (UIControl *)item;
+        }
+    }
+    return nil;
+}
+static BOOL selectRuleSegment(UITableViewController *editor, NSString *key, NSString *title) {
+    UISegmentedControl *control=(UISegmentedControl *)ruleField(editor,key);
+    for (NSUInteger i=0; i<control.numberOfSegments; i++) if ([[control titleForSegmentAtIndex:i] isEqual:title]) {
+        control.selectedSegmentIndex=i; [control sendActionsForControlEvents:UIControlEventValueChanged]; return YES;
+    }
+    return NO;
+}
+static void typeRuleField(UITableViewController *editor, NSString *key, NSString *text) {
+    UITextField *entry=(UITextField *)ruleField(editor,key);
+    entry.text=text; [entry sendActionsForControlEvents:UIControlEventEditingChanged];
+}
+static void finishPage(UIViewController *page) {
+    UIBarButtonItem *item=page.navigationItem.rightBarButtonItem;
+    [UIApplication.sharedApplication sendAction:item.action to:item.target from:item forEvent:nil];
+}
+static void captureRuleForm(UITableViewController *page) {
+    page.view.frame=CGRectMake(0,0,510,430);
+    [page.view layoutIfNeeded];
+    UIGraphicsImageRenderer *renderer=[[UIGraphicsImageRenderer alloc] initWithSize:page.view.bounds.size];
+    UIImage *preview=[renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+        [page.view.layer renderInContext:context.CGContext];
+    }];
+    NSURL *documents=[NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
+    [UIImagePNGRepresentation(preview) writeToURL:[documents URLByAppendingPathComponent:@"aqw-condition-editor.png"] atomically:YES];
+}
+
 + (BOOL)checkControls {
     NSString *suite = [@"aqw.profileTests." stringByAppendingString:NSUUID.UUID.UUIDString];
     NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:suite];
+    BOOL animated=UIView.areAnimationsEnabled;
+    [UIView setAnimationsEnabled:NO];
     @try { return [self checkControlsWithDefaults:defaults]; }
-    @finally { [defaults removePersistentDomainForName:suite]; }
+    @finally { [UIView setAnimationsEnabled:animated]; [defaults removePersistentDomainForName:suite]; }
 }
 + (BOOL)checkControlsWithDefaults:(NSUserDefaults *)defaults {
     AQWSkillSets *sets = [[AQWSkillSets alloc] initWithDefaults:defaults];
@@ -385,14 +420,34 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     UITableViewController *step = (UITableViewController *)nav.topViewController;
     [step loadViewIfNeeded];
     if ([step isEqual:editor] || [step numberOfSectionsInTableView:step.tableView]!=3) return NO;
-    [step tableView:step.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:1 inSection:1]];
+    [step tableView:step.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:2 inSection:1]];
     UITableViewController *rule=(UITableViewController *)nav.topViewController;
     [rule loadViewIfNeeded];
     if ([rule isEqual:step] || ![rule.title isEqual:@"Condition"]) return NO;
-    [nav popToRootViewControllerAnimated:NO];
-    UIBarButtonItem *save=editor.navigationItem.rightBarButtonItem;
-    [UIApplication.sharedApplication sendAction:save.action to:save.target from:save forEvent:nil];
-    if (![saved[@"steps"] isEqual:steps]) return NO;
+    if (!selectRuleSegment(rule,@"kind",@"Mana") || !selectRuleSegment(rule,@"unit",@"#") ||
+        !selectRuleSegment(rule,@"op",@"≥")) return NO;
+    typeRuleField(rule,@"value",@"12500");
+    captureRuleForm(rule); finishPage(rule);
+    if (nav.topViewController!=step) return NO;
+    [step tableView:step.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:3 inSection:1]];
+    rule=(UITableViewController *)nav.topViewController; [rule loadViewIfNeeded];
+    if (!selectRuleSegment(rule,@"kind",@"Party HP") || ruleField(rule,@"who")) return NO;
+    typeRuleField(rule,@"value",@"35"); finishPage(rule);
+    [step tableView:step.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:4 inSection:1]];
+    rule=(UITableViewController *)nav.topViewController; [rule loadViewIfNeeded];
+    if (!selectRuleSegment(rule,@"kind",@"Aura") || !selectRuleSegment(rule,@"who",@"Target") ||
+        !selectRuleSegment(rule,@"op",@"≤")) return NO;
+    typeRuleField(rule,@"name",@"  Battle Focus  "); typeRuleField(rule,@"value",@"2"); finishPage(rule);
+    finishPage(step); finishPage(editor);
+    NSArray *expected=@[
+        @{@"kind":@"mp",@"who":@"self",@"op":@"gte",@"unit":@"raw",@"value":@12500},
+        @{@"kind":@"partyhp",@"who":@"party",@"op":@"lte",@"unit":@"percent",@"value":@35},
+        @{@"kind":@"aura",@"who":@"target",@"op":@"lte",@"name":@"Battle Focus",@"value":@2}];
+    if (![[saved[@"steps"] firstObject][@"rules"] isEqual:expected] ||
+        ![[saved[@"steps"] valueForKey:@"slot"] isEqual:[steps valueForKey:@"slot"]]) return NO;
+    [sets save:saved forClass:@"10"];
+    steps=[[[AQWSkillSets alloc] initWithDefaults:defaults] selectedFor:@"10"][@"steps"];
+    if (![[steps firstObject][@"rules"] isEqual:expected]) return NO;
     NSDictionary *a = @{@"id":@"10",@"name":@"Healer"}, *b = @{@"id":@"20",@"name":@"Mage"};
     for (NSValue *size in @[[NSValue valueWithCGSize:CGSizeMake(852,393)],
                             [NSValue valueWithCGSize:CGSizeMake(568,320)],
@@ -406,26 +461,23 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
         [view showBag:@{@"session":@2,@"classes":@[b],@"equipped":@"20"}];
         if ([view className:@"10"] || ![view.classID isEqual:@"20"] || view.run.enabled) return NO;
         [view showBag:@{@"session":@3,@"classes":@[b,a],@"equipped":@"10"}];
-        for (int side = 0; side < 2; side++) {
-            view.left = side; [view setExpanded:NO]; [view layoutIfNeeded];
-            if ((CGRectGetMidX(view.handle.frame) < CGRectGetMidX(view.bounds)) != view.left) return NO;
-            CGFloat gutter = (CGRectGetWidth(view.bounds)-CGRectGetHeight(view.bounds)*960./550.)/2.;
-            if (gutter >= 64 && (view.left ? CGRectGetMaxX(view.handle.frame)>gutter :
-                                 CGRectGetMinX(view.handle.frame)<CGRectGetWidth(view.bounds)-gutter)) return NO;
-            if ([view hitTest:CGPointMake(CGRectGetMidX(view.bounds),CGRectGetMidY(view.bounds)) withEvent:nil]) return NO;
-            [view.handle sendActionsForControlEvents:UIControlEventTouchUpInside]; [view layoutIfNeeded];
-            if (!view.expanded || ![last[@"action"] isEqual:@"map"] || !CGRectContainsRect(view.bounds,view.card.frame) ||
-                CGRectIntersectsRect(view.card.frame,view.handle.frame) || CGRectGetHeight(view.run.frame)<44) return NO;
-            [view.run sendActionsForControlEvents:UIControlEventTouchUpInside];
-            if (![last[@"action"] isEqual:@"start"] || ![last[@"classId"] isEqual:@"10"] ||
-                ![last[@"steps"] isEqual:steps] || ![last[@"session"] isEqual:@3]) return NO;
-            [view showState:@"Running" running:YES]; [view setExpanded:NO];
-            if (view.quickRun.hidden) return NO;
-            [view.quickRun sendActionsForControlEvents:UIControlEventTouchUpInside];
-            if (![last[@"action"] isEqual:@"stop"]) return NO;
-            [view showState:@"Stopped" running:NO];
-            if (view.quickRun.hidden || !view.quickRun.enabled) return NO;
-        }
+        [view setExpanded:NO]; [view layoutIfNeeded];
+        if (CGRectGetMidX(view.handle.frame) <= CGRectGetMidX(view.bounds)) return NO;
+        CGFloat gutter = (CGRectGetWidth(view.bounds)-CGRectGetHeight(view.bounds)*960./550.)/2.;
+        if (gutter >= 64 && CGRectGetMinX(view.handle.frame)<CGRectGetWidth(view.bounds)-gutter) return NO;
+        if ([view hitTest:CGPointMake(CGRectGetMidX(view.bounds),CGRectGetMidY(view.bounds)) withEvent:nil]) return NO;
+        [view.handle sendActionsForControlEvents:UIControlEventTouchUpInside]; [view layoutIfNeeded];
+        if (!view.expanded || ![last[@"action"] isEqual:@"map"] || !CGRectContainsRect(view.bounds,view.card.frame) ||
+            CGRectIntersectsRect(view.card.frame,view.handle.frame) || CGRectGetHeight(view.run.frame)<44) return NO;
+        [view.run sendActionsForControlEvents:UIControlEventTouchUpInside];
+        if (![last[@"action"] isEqual:@"start"] || ![last[@"classId"] isEqual:@"10"] ||
+            ![last[@"steps"] isEqual:steps] || ![last[@"session"] isEqual:@3]) return NO;
+        [view showState:@"Running" running:YES]; [view setExpanded:NO];
+        if (view.quickRun.hidden) return NO;
+        [view.quickRun sendActionsForControlEvents:UIControlEventTouchUpInside];
+        if (![last[@"action"] isEqual:@"stop"]) return NO;
+        [view showState:@"Stopped" running:NO];
+        if (view.quickRun.hidden || !view.quickRun.enabled) return NO;
         [view showBag:@{@"session":@4,@"classes":@[],@"equipped":@""}];
         if (view.run.enabled || !view.quickRun.hidden || view.chooseClass.enabled) return NO;
     }
