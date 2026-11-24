@@ -211,8 +211,8 @@ jobs:
           from pathlib import Path
 
           version = ET.parse('build/Probe-app.xml').findtext('{*}versionNumber')
-          if not version or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version):
-              raise ValueError('Expected a major.minor.patch app version')
+          if not version or not re.fullmatch(r'[0-9]+(?:\.[0-9]+){0,2}', version):
+              raise ValueError('Expected one to three numeric version components')
           channel = os.environ['AQW_RELEASE_CHANNEL']
           if channel not in ('stable', 'unstable'):
               raise ValueError('Unknown release channel: ' + channel)
@@ -298,7 +298,8 @@ jobs:
           if old_version != '—' and tuple(map(int, old_version.split('.'))) > tuple(map(int, version.split('.'))):
               raise RuntimeError(f'{label} {old_version} is already listed in Downloads')
           url = f"https://github.com/{repo}/releases/download/{tag}/{ipa}"
-          lines[row] = f'| {label} | {version} | [Download]({url}) |\n'
+          download_label = 'Download IPA' if preview else 'Download Classic IPA (no bot)'
+          lines[row] = f'| {label} | {version} | [{download_label}]({url}) |\n'
           updated = ''.join(lines)
 
           ref = f'refs/tags/{tag}'
