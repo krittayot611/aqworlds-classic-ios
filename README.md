@@ -12,12 +12,24 @@ An unofficial iOS and iPadOS client for AQWorlds Classic.
 
 | Channel | Version | IPA |
 | --- | --- | --- |
-| Stable | 0.1.9 | [Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.9/AQWorlds-Classic-0.1.9.ipa) |
-| Unstable | 0.1.14 | [Download](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v0.1.14-unstable/AQWorlds-Classic-0.1.14-unstable.ipa) |
+| Stable | 1 | [Download Classic IPA (no bot)](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1/AQWorlds-Classic-1.ipa) |
+| Unstable | 1.1.5 | [Download IPA with skill automation](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.5-unstable/AQWorlds-Classic-1.1.5-unstable.ipa) |
 
-**Stable** — The full release for iPhone and iPad.
+Classic 1 uses manual touch controls. iOS displays it as **1.0.0**. In 1.1.5, open **Skills** on the right edge to set up an optional rotation.
 
-**Unstable** — A preview build for testing the latest changes.
+<details>
+<summary>Version history and earlier downloads</summary>
+
+| Version | Previous number | Edition or feature |
+| --- | --- | --- |
+| [1](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1) | 0.1.9 | Classic touch controls (no bot) |
+| [1.1.1](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.1-unstable) | 0.1.10 | Map reader |
+| [1.1.2](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.2-unstable) | 0.1.11 | Bot controls and skill rotation |
+| [1.1.3](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.3-unstable) | 0.1.12 | Saved skill sets by class |
+| [1.1.4](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.4-unstable) | 0.1.13 | Health, mana and named aura conditions |
+| [1.1.5](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.5-unstable) | 0.1.14 | Cooldown switches and swipe to delete |
+
+</details>
 
 ## About
 
