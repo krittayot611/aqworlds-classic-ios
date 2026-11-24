@@ -10,6 +10,7 @@ package {
     import flash.text.TextFormat;
     import flash.events.TimerEvent;
     import flash.utils.Timer;
+    import flash.utils.getTimer;
 
     public final class CurrentMapReader extends Sprite {
         private var context:ExtensionContext;
@@ -20,6 +21,7 @@ package {
         private var bag:SkillBag = new SkillBag();
         private var poll:Timer = new Timer(1250);
         private var lastBag:String;
+        private var navigator:MapDestinations = new MapDestinations();
         private var foreground:Boolean = true;
 
         public function CurrentMapReader(currentGame:Function) {
@@ -68,6 +70,7 @@ package {
 
         private function onBackground(event:Event):void {
             foreground = false;
+            stopTravel("Travel stopped · app in background");
             poll.stop();
             if (rotation && rotation.running) rotation.stop("Stopped · app in background");
         }
@@ -78,8 +81,11 @@ package {
         private function refreshBag(event:TimerEvent = null):void {
             if (!foreground || !context) return;
             var info:Object;
-            try { info = bag.snapshot(game()); }
+            var source:Object;
+            try { source = game(); info = bag.snapshot(source); }
             catch (error:Error) { info = bag.snapshot(null); }
+            try { travelState(navigator.observe(source,info.session,getTimer())); }
+            catch (navigationError:Error) { stopTravel("Travel unavailable"); }
             var payload:String = JSON.stringify(info);
             if (payload !== lastBag) {
                 context.call("updateTools","bag",payload,false);
@@ -87,14 +93,51 @@ package {
             }
         }
 
+        private function travelState(message:String):void {
+            if (message && context) context.call("updateTools","travel",message,navigator.active);
+        }
+        private function stopTravel(message:String):void {
+            if (navigator.active) { navigator.cancel(); travelState(message); }
+        }
+        private function mapCommand(request:Object):void {
+            var source:Object = game();
+            var loc:Object = MapDestinations.location(source);
+            var token:uint = bag.session(source);
+            if (!foreground || token != uint(request.session) || !loc) {
+                context.call("updateTools","notice","Enter a map and try again",false); return;
+            }
+            if (request.action == "travel") {
+                if (rotation.running) rotation.stop();
+                travelState(navigator.begin(source,request.dest,request.mob,token,getTimer()));
+                return;
+            }
+            var panel:Object = {mode:request.action, session:token, location:loc};
+            if (request.action == "mobs") panel.rows = MapDestinations.mobs(source.world);
+            if (request.action == "saveMark") {
+                panel.location = navigator.bookmark(source);
+                if (!panel.location) { context.call("updateTools","notice","Waiting for the entrance pad",false); return; }
+            }
+            context.call("updateTools","destinations",JSON.stringify(panel),false);
+        }
+
         private function botCommand(message:String):void {
             if (!rotation) return;
             try {
                 var request:Object = JSON.parse(message);
                 if (request.action == "start" && !foreground) rotation.stop("Stopped · app in background");
-                else if (request.action == "start") rotation.start(request.steps as Array,request["auto"] === true,request.classId,uint(request.session));
+                else if (request.action == "start") {
+                    stopTravel("Travel stopped");
+                    rotation.start(request.steps as Array,request["auto"] === true,request.classId,uint(request.session));
+                }
                 else if (request.action == "bag") { lastBag = null; refreshBag(); }
                 else if (request.action == "stop") rotation.stop();
+                else if (request.action == "cancelTravel") stopTravel("Travel stopped");
+                else if (["mobs","marks","saveMark","travel"].indexOf(request.action) >= 0) {
+                    try { mapCommand(request); }
+                    catch (navigationError:Error) {
+                        navigator.cancel(); travelState("Map controls unavailable");
+                    }
+                }
                 else if (request.action == "map" && done == null) {
                     read(function(map:String, error:String):void {
                         if (context) context.call("updateTools", "map", error ? "Tap to retry" : (map || ""), false);
@@ -141,6 +184,7 @@ package {
             NativeApplication.nativeApplication.removeEventListener(Event.DEACTIVATE,onBackground);
             NativeApplication.nativeApplication.removeEventListener(Event.ACTIVATE,onForeground);
             poll.stop(); poll.removeEventListener(TimerEvent.TIMER,refreshBag);
+            navigator.cancel();
             if (rotation) { rotation.dispose(); rotation = null; }
             if (context != null) {
                 context.removeEventListener(StatusEvent.STATUS, onStatus);

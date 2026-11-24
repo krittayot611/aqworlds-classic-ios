@@ -10,9 +10,11 @@
 @end
 
 @interface AQWSkillEditor : AQWSkillTable
+@property(nonatomic,copy) NSArray *abilityNames;
 - (instancetype)initForClass:(NSString *)className profile:(NSDictionary *)profile
                        saved:(void (^)(NSDictionary *profile))saved;
 @end
 
+FOUNDATION_EXPORT NSString *AQWAbilityLabel(NSArray *names, NSInteger slot);
 FOUNDATION_EXPORT UINavigationController *AQWSkillNavigation(UIViewController *root);
 

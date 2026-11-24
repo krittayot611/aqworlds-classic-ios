@@ -40,11 +40,12 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
 @property(nonatomic, copy) AQWBotCommand command;
 @property(nonatomic) BOOL expanded, running, pending, autoTarget, pickingClass;
 @property(nonatomic,strong) AQWSkillSets *sets;
+@property(nonatomic,strong) NSUserDefaults *preferences;
 @property(nonatomic,strong) NSArray<NSDictionary *> *classes;
 @property(nonatomic,copy) NSString *classID, *equipped;
 @property(nonatomic,strong) NSNumber *session;
 @property(nonatomic,weak) UIViewController *modal;
-@property(nonatomic,strong) UIButton *handle, *quickRun, *run, *map, *chooseClass, *chooseSet, *addSet, *editSet, *deleteSet;
+@property(nonatomic,strong) UIButton *handle, *cancelTravel, *quickRun, *run, *map, *chooseClass, *chooseSet, *addSet, *editSet, *deleteSet;
 @property(nonatomic,strong) UILabel *stateLine, *order, *dot;
 @property(nonatomic,strong) NSArray<UIButton *> *targets;
 @property(nonatomic,strong) UIView *card;
@@ -57,6 +58,7 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     if (!(self = [super initWithFrame:frame])) return nil;
     self.command = command;
     NSUserDefaults *prefs = NSUserDefaults.standardUserDefaults;
+    self.preferences = prefs;
     self.autoTarget = [prefs boolForKey:@"aqw.rotation.auto"];
     self.sets = [[AQWSkillSets alloc] initWithDefaults:prefs];
     self.classes = @[];
@@ -127,9 +129,15 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     actions.distribution = UIStackViewDistributionFillEqually;
     self.setActions = actions;
     self.order = label(@"",14,UIFontWeightMedium,AQWSilver()); self.order.numberOfLines = 2;
+    UIButton *mobs = button(@"Mobs", @"Find map monsters", self, @selector(mobsTapped:));
+    UIButton *marks = button(@"Mark Map", @"Save or visit map bookmarks", self, @selector(marksTapped:));
+    UIStackView *travel = stack(@[mobs,marks],YES,6);
+    travel.distribution = UIStackViewDistributionFillEqually;
+    self.cancelTravel = button(@"Cancel travel", @"Cancel map travel", self, @selector(cancelTapped:));
+    self.cancelTravel.hidden = YES;
     UIStackView *body = stack(@[label(@"Bag class",13,UIFontWeightSemibold,AQWSecondary()),self.chooseClass,
         label(@"Skill set",13,UIFontWeightSemibold,AQWSecondary()),self.chooseSet,self.order,actions,
-        label(@"Target",13,UIFontWeightSemibold,AQWSecondary()),targetRow,self.map],NO,5);
+        label(@"Target",13,UIFontWeightSemibold,AQWSecondary()),targetRow,self.map,travel,self.cancelTravel],NO,5);
     self.scroll = [UIScrollView new];
     self.scroll.showsHorizontalScrollIndicator = NO;
     self.scroll.indicatorStyle = UIScrollViewIndicatorStyleWhite;
@@ -189,7 +197,10 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     self.editSet.enabled = self.deleteSet.enabled = configurable && profile;
     for (UIButton *b in @[self.chooseClass,self.chooseSet,self.addSet,self.editSet,self.deleteSet]) b.alpha = b.enabled ? 1 : .48;
     self.order.hidden = !profile;
-    self.order.text = [[profile[@"steps"] valueForKey:@"slot"] componentsJoinedByString:@"  ›  "];
+    NSArray *names = [self selectedAbilityNames];
+    NSMutableArray *order = [NSMutableArray array];
+    for (NSDictionary *step in profile[@"steps"]) [order addObject:AQWAbilityLabel(names,[step[@"slot"] integerValue])];
+    self.order.text = [order componentsJoinedByString:@"  ›  "];
     NSString *verb = self.running ? @"Stop" : [self.classID isEqual:self.equipped] || !name ? @"Start" : @"Equip & start";
     NSString *symbol = self.running ? @"■" : @"▶";
     NSString *buttonTitle = self.pending ? @"One moment…" : [NSString stringWithFormat:@"%@  %@",symbol,verb];
@@ -269,6 +280,13 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     BOOL changed = ![self.session isEqual:bag[@"session"]];
     BOOL listChanged = ![self.classes isEqual:bag[@"classes"]];
     self.session = bag[@"session"]; self.classes = bag[@"classes"]; self.equipped = bag[@"equipped"];
+    for (NSDictionary *entry in self.classes) {
+        NSArray *names = entry[@"skills"];
+        if (names.count != 4) continue;
+        NSString *key = [@"aqw.skills.names." stringByAppendingString:entry[@"id"]];
+        if (![names isEqual:[self.preferences arrayForKey:key]])
+            [self.preferences setObject:names forKey:key];
+    }
     BOOL lost = ![self className:self.classID];
     if (changed || lost || (listChanged && self.pickingClass)) {
         if (self.modal.presentingViewController) [self.modal dismissViewControllerAnimated:NO completion:nil];
@@ -316,6 +334,15 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     }];
     [self presentTool:AQWSkillNavigation(list)];
 }
+- (NSArray *)selectedAbilityNames {
+    for (NSDictionary *entry in self.classes)
+        if ([entry[@"id"] isEqual:self.classID]) {
+            NSArray *live = entry[@"skills"];
+            NSString *key = [@"aqw.skills.names." stringByAppendingString:self.classID];
+            return live.count == 4 ? live : [self.preferences arrayForKey:key];
+        }
+    return nil;
+}
 - (void)openEditor:(NSDictionary *)profile {
     NSString *key = self.classID, *name = [self className:key]; NSNumber *session = self.session;
     if (!name || self.running || self.pending) return;
@@ -324,6 +351,7 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
         if (![self.session isEqual:session] || ![self className:key]) return;
         [self.sets save:value forClass:key]; self.stateLine.text = @"Set saved on this device"; [self refresh];
     }];
+    editor.abilityNames = [self selectedAbilityNames];
     [self presentTool:AQWSkillNavigation(editor)];
 }
 - (void)addTapped:(id)sender { [self pickClassThen:^{ [self openEditor:nil]; }]; }
@@ -340,6 +368,70 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
         [self.sets remove:profile[@"id"] forClass:key]; self.stateLine.text = @"Set deleted"; [self refresh];
     }]];
     self.pickingClass = NO; [self presentTool:a];
+}
+- (void)removeBookmark:(NSDictionary *)entry {
+    NSString *key = @"aqw.map.bookmarks";
+    NSMutableArray *saved = [[self.preferences arrayForKey:key] mutableCopy];
+    [saved removeObject:entry];
+    if (saved) [self.preferences setObject:saved forKey:key];
+    [self showNotice:@"Bookmark deleted"];
+}
+- (void)mobsTapped:(id)sender { self.command(@{@"action":@"mobs",@"session":self.session ?: @0}); }
+- (void)marksTapped:(id)sender { self.command(@{@"action":@"marks",@"session":self.session ?: @0}); }
+- (void)cancelTapped:(id)sender { self.command(@{@"action":@"cancelTravel"}); }
+- (void)showTravel:(NSString *)text active:(BOOL)active {
+    self.cancelTravel.hidden = !active;
+    [self showNotice:text];
+}
+- (void)showNotice:(NSString *)text { self.stateLine.text = text; }
+- (void)showDestinations:(NSDictionary *)panel {
+    NSNumber *session = panel[@"session"];
+    if (![session isEqual:self.session]) return;
+    NSDictionary *here = panel[@"location"];
+    BOOL mobs = [panel[@"mode"] isEqual:@"mobs"];
+    NSUserDefaults *prefs = self.preferences;
+    NSString *key = @"aqw.map.bookmarks";
+    NSArray *entries = mobs ? panel[@"rows"] : [prefs arrayForKey:key] ?: @[];
+    BOOL marked = NO;
+    for (NSDictionary *entry in entries) {
+        if ([entry[@"area"] isEqual:here[@"area"]] && [entry[@"cell"] isEqual:here[@"cell"]] &&
+            [entry[@"pad"] isEqual:here[@"pad"]]) { marked = YES; break; }
+    }
+    if ([panel[@"mode"] isEqual:@"saveMark"]) {
+        if (!marked) [prefs setObject:[entries arrayByAddingObject:here] forKey:key];
+        [self showNotice:marked ? @"Location already marked" : @"Location marked on this device"]; return;
+    }
+    NSMutableArray *rows = [NSMutableArray array];
+    if (!mobs && !marked)
+        [rows addObject:@{@"id":@"save",@"name":@"＋ Mark current location",
+            @"detail":[NSString stringWithFormat:@"%@ · %@, %@",here[@"area"],here[@"cell"],here[@"pad"]]}];
+    [entries enumerateObjectsUsingBlock:^(NSDictionary *entry, NSUInteger index, BOOL *stop) {
+        NSString *detail = mobs ? entry[@"cell"] : [NSString stringWithFormat:@"%@, %@",entry[@"cell"],entry[@"pad"]];
+        [rows addObject:@{@"id":@(index).stringValue,@"name":mobs ? entry[@"name"] : entry[@"area"],@"detail":detail}];
+    }];
+    if (!rows.count) { [self showNotice:@"No monsters listed in this map"]; return; }
+    AQWChoiceList *list = [[AQWChoiceList alloc] initWithTitle:mobs ? @"Mobs" : @"Mark Map" rows:rows selected:nil searchable:mobs choose:^(NSString *choice) {
+        if (![session isEqual:self.session]) return;
+        if ([choice isEqual:@"save"]) {
+            self.command(@{@"action":@"saveMark",@"session":session}); return;
+        }
+        NSDictionary *entry = entries[choice.integerValue];
+        if (mobs) {
+            self.command(@{@"action":@"travel",@"session":session,@"dest":@{@"area":here[@"area"],@"cell":entry[@"cell"]},@"mob":entry[@"id"]});
+            return;
+        }
+        UIAlertController *options = [UIAlertController alertControllerWithTitle:entry[@"area"]
+            message:[NSString stringWithFormat:@"%@, %@",entry[@"cell"],entry[@"pad"]] preferredStyle:UIAlertControllerStyleAlert];
+        [options addAction:[UIAlertAction actionWithTitle:@"Go" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){
+            self.command(@{@"action":@"travel",@"session":session,@"dest":entry});
+        }]];
+        [options addAction:[UIAlertAction actionWithTitle:@"Delete bookmark" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a){
+            [self removeBookmark:entry];
+        }]];
+        [options addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+        [self presentTool:options];
+    }];
+    [self presentTool:AQWSkillNavigation(list)];
 }
 - (void)mapTapped:(id)sender { self.command(@{@"action":@"map"}); }
 - (void)runTapped:(id)sender {
@@ -536,11 +628,30 @@ static BOOL checkStepEditing(void) {
         AQWBotDrawer *view = [[self alloc] initWithFrame:(CGRect){CGPointZero,size.CGSizeValue}
             command:^(NSDictionary *request){ last=request; }];
         view.sets = [[AQWSkillSets alloc] initWithDefaults:defaults];
+        view.preferences = defaults;
         [view showBag:@{@"session":@1,@"classes":@[a],@"equipped":@"10"}];
         if (![view.classID isEqual:@"10"] || !view.run.enabled) return NO;
         [view showBag:@{@"session":@2,@"classes":@[b],@"equipped":@"20"}];
         if ([view className:@"10"] || ![view.classID isEqual:@"20"] || view.run.enabled) return NO;
         [view showBag:@{@"session":@3,@"classes":@[b,a],@"equipped":@"10"}];
+        if (![AQWAbilityLabel(@[@"Blue Impact"],2) isEqual:@"1: Blue Impact"] ||
+            ![AQWAbilityLabel(nil,5) hasPrefix:@"4:"] || ![AQWAbilityLabel(nil,0) length]) return NO;
+        NSDictionary *mark = @{@"area":@"fixture-1234",@"cell":@"r1",@"pad":@"left"};
+        NSDictionary *secondMark = @{@"area":@"fixture-5678",@"cell":@"r1",@"pad":@"left"};
+        for (NSDictionary *location in @[mark, mark, secondMark]) {
+            [view showDestinations:@{@"session":@3,@"mode":@"saveMark",@"location":location}];
+        }
+        if (![[defaults arrayForKey:@"aqw.map.bookmarks"] isEqual:@[mark,secondMark]]) return NO;
+        [view removeBookmark:mark]; [view removeBookmark:secondMark];
+        if ([defaults arrayForKey:@"aqw.map.bookmarks"].count) return NO;
+        [view mobsTapped:nil]; if (![last[@"action"] isEqual:@"mobs"]) return NO;
+        [view marksTapped:nil]; if (![last[@"action"] isEqual:@"marks"]) return NO;
+        [view showTravel:@"Joining fixture-1234" active:YES];
+        if (view.cancelTravel.hidden) return NO;
+        [view.cancelTravel sendActionsForControlEvents:UIControlEventTouchUpInside];
+        if (![last[@"action"] isEqual:@"cancelTravel"]) return NO;
+        [view showTravel:@"Travel stopped" active:NO];
+        if (!view.cancelTravel.hidden) return NO;
         [view setExpanded:NO]; [view layoutIfNeeded];
         if (CGRectGetMidX(view.handle.frame) <= CGRectGetMidX(view.bounds)) return NO;
         CGFloat gutter = (CGRectGetWidth(view.bounds)-CGRectGetHeight(view.bounds)*960./550.)/2.;

@@ -166,15 +166,20 @@ static FREObject updateTools(FREContext context, void *unused, uint32_t argc, FR
     if (argc != 3) return NULL;
     AQWMapSession *session = sessionFor(context);
     NSString *field = stringArgument(argv[0]);
-    NSString *text = limitedString(argv[1], [field isEqual:@"bag"] ? 262144 : 8192);
+    NSString *text = limitedString(argv[1], ([field isEqual:@"bag"] || [field isEqual:@"destinations"]) ? 262144 : 8192);
     uint32_t running = 0;
     if (!text || FREGetObjectAsBool(argv[2], &running) != FRE_OK) return NULL;
     onUI(^{
-        if ([field isEqual:@"bag"]) {
+        if ([field isEqual:@"bag"] || [field isEqual:@"destinations"]) {
             NSData *data = [text dataUsingEncoding:NSUTF8StringEncoding];
             id bag = [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
-            if ([bag isKindOfClass:NSDictionary.class]) [session.drawer showBag:bag];
+            if ([bag isKindOfClass:NSDictionary.class]) {
+                if ([field isEqual:@"bag"]) [session.drawer showBag:bag];
+                else [session.drawer showDestinations:bag];
+            }
         } else if ([field isEqualToString:@"map"]) [session.drawer showMap:text];
+        else if ([field isEqual:@"travel"]) [session.drawer showTravel:text active:running != 0];
+        else if ([field isEqual:@"notice"]) [session.drawer showNotice:text];
         else if ([field isEqualToString:@"state"]) [session.drawer showState:text running:running != 0];
     });
     return NULL;

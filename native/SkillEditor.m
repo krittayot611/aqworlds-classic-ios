@@ -105,7 +105,7 @@ static void input(UIViewController *from, NSString *title, NSString *initial, BO
     if (self.navigationController.viewControllers.firstObject == self)
         self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(close:)];
     if (self.searchable) {
-        UISearchBar *search = [UISearchBar new]; search.placeholder = @"Search bag classes";
+        UISearchBar *search = [UISearchBar new]; search.placeholder = [self.title isEqual:@"Mobs"] ? @"Search monsters" : @"Search bag classes";
         search.delegate = self; [search sizeToFit]; self.tableView.tableHeaderView = search;
         self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
     }
@@ -317,7 +317,20 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
 }
 @end
 
+NSString *AQWAbilityLabel(NSArray *names, NSInteger slot) {
+    if (slot < 2 || slot > 5) return @"Choose skill";
+    NSUInteger index = slot - 2;
+    NSString *name = index < names.count ? names[index] : @"Equip to load name";
+    return [NSString stringWithFormat:@"%ld: %@", (long)slot-1, name];
+}
+static NSArray *abilityLabels(NSArray *names) {
+    NSMutableArray *labels = [NSMutableArray array];
+    for (NSInteger slot=2; slot<=5; ++slot) [labels addObject:AQWAbilityLabel(names,slot)];
+    return labels;
+}
+
 @interface AQWStepEditor : AQWSkillTable
+@property(nonatomic,copy) NSArray *abilityNames;
 @property(nonatomic,strong) NSMutableDictionary *step;
 @property(nonatomic,strong) NSMutableArray *rules;
 @property(nonatomic,copy) void (^commit)(NSDictionary *);
@@ -359,7 +372,7 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
     return self.canUp+self.canDown+1;
 }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)p {
-    if (p.section==0) return p.row==0 ? cell(@"Skill slot",[self.step[@"slot"] stringValue],YES) :
+    if (p.section==0) return p.row==0 ? cell(@"Skill",AQWAbilityLabel(self.abilityNames,[self.step[@"slot"] integerValue]),YES) :
         [self switchRow:@"Wait for cooldown" key:@"wait"];
     if (p.section==1) {
         if (!p.row) return [self switchRow:@"Use rules" key:@"rulesEnabled"];
@@ -373,7 +386,7 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)p {
     [table deselectRowAtIndexPath:p animated:YES];
     if (p.section==0 && p.row==0)
-        pick(self,@"Skill slot",@[@"2",@"3",@"4",@"5"],@[@"Skill 2",@"Skill 3",@"Skill 4",@"Skill 5"],[self.step[@"slot"] stringValue],
+        pick(self,@"Skill slot",@[@"2",@"3",@"4",@"5"],abilityLabels(self.abilityNames),[self.step[@"slot"] stringValue],
              ^(NSString *v){ self.step[@"slot"]=@(v.integerValue); [table reloadData]; });
     else if (p.section==0 || (p.section==1 && p.row==0)) {
         UISwitch *control=(UISwitch *)[table cellForRowAtIndexPath:p].accessoryView;
@@ -433,7 +446,7 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
     if (!p.section) return cell(@"Set name",self.name,YES);
     if (p.row==self.steps.count) return cell(@"＋ Add skill",nil,YES);
     NSDictionary *step=self.steps[p.row];
-    return cell([NSString stringWithFormat:@"%ld.   Skill %@",(long)p.row+1,step[@"slot"]],AQWStepSummary(step),YES);
+    return cell(AQWAbilityLabel(self.abilityNames,[step[@"slot"] integerValue]),AQWStepSummary(step),YES);
 }
 - (void)removeStepAtIndex:(NSUInteger)index {
     [self.steps removeObjectAtIndex:index];
@@ -466,12 +479,12 @@ static void pick(UIViewController *owner, NSString *title, NSArray *ids, NSArray
     }
     NSInteger i=p.row;
     if (i==self.steps.count) {
-        pick(self,@"Add skill",@[@"2",@"3",@"4",@"5"],@[@"Skill 2",@"Skill 3",@"Skill 4",@"Skill 5"],nil,^(NSString *slot){
+        pick(self,@"Add skill",@[@"2",@"3",@"4",@"5"],abilityLabels(self.abilityNames),nil,^(NSString *slot){
             [self.steps addObject:AQWStep(@(slot.integerValue))]; self.navigationItem.rightBarButtonItem.enabled=YES; [table reloadData];
         }); return;
     }
     AQWStepEditor *ed=[[AQWStepEditor alloc] initWithStyle:grouped()];
-    ed.step=[self.steps[i] mutableCopy]; ed.canUp=i>0; ed.canDown=i+1<self.steps.count;
+    ed.abilityNames=self.abilityNames; ed.step=[self.steps[i] mutableCopy]; ed.canUp=i>0; ed.canDown=i+1<self.steps.count;
     ed.commit=^(NSDictionary *v){self.steps[i]=v; [table reloadData];};
     ed.move=^(NSInteger d){
         if (!d) { [self removeStepAtIndex:i]; return; }

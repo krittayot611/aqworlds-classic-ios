@@ -3,6 +3,28 @@ package {
     public final class SkillBag {
         private var world:Object, avatar:Object, user:String;
         private var epoch:uint;
+        private var previousClass:String = "", previousBar:String = "";
+        private var skillNames:Object = {};
+        private var previousFirst:Object;
+        private function readBar(worn:String):void {
+            var active:Object = field(field(world,"actions"),"active");
+            if (!worn || !active) return;
+            var names:Array = [];
+            for (var i:int = 1; i <= 4; ++i) {
+                var n:* = field(field(active,String(i)),"nam");
+                if (!(n is String) || !n.length) return;
+                names.push(n);
+            }
+            var classLabel:* = field(field(avatar,"objData"),"strClassName") || field(field(avatar,"dataLeaf"),"strClassName");
+            var item:Object = owned(avatar,worn);
+            if (classLabel && String(classLabel).toLowerCase() != String(field(item,"sName")).toLowerCase()) return;
+            var sig:String = JSON.stringify(names);
+            // Equipment and hotbar arrive independently when switching classes.
+            if (previousClass == worn || (previousClass && sig == previousBar && previousFirst === active[1])) return;
+            previousFirst = active[1];
+            previousClass = worn; previousBar = sig;
+            skillNames[worn] = names;
+        }
         public static function field(obj:Object, key:String):* {
             return obj != null && key in obj ? obj[key] : null;
         }
@@ -44,6 +66,7 @@ package {
             var a:Object = field(w,"myAvatar");
             var u:String = nameOf(game);
             if (world !== w || avatar !== a || user !== u) {
+                previousClass = previousBar = ""; previousFirst = null; skillNames = {};
                 ++epoch; world = w; avatar = a; user = u;
             }
             return epoch;
@@ -63,6 +86,8 @@ package {
                     seen[id] = true;
                     classes.push({id:id,name:String(name)});
                 }
+                readBar(worn);
+                for each (var entry:Object in classes) if (skillNames[entry.id]) entry.skills = skillNames[entry.id];
                 classes.sortOn(["name","id"],[Array.CASEINSENSITIVE,Array.NUMERIC]);
             }
             return {session:token, classes:classes, equipped:worn};

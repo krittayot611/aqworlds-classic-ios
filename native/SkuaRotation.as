@@ -15,6 +15,7 @@ package {
         private var autoTarget:Boolean;
         private var oldBarSkill:Object, oldBarId:String, equipDeadline:int;
         private var lastMessage:String;
+        private var approached:Object;
 
         public function SkuaRotation(game:Function, update:Function, inventory:SkillBag) {
             getGame = game; report = update; bag = inventory;
@@ -54,7 +55,7 @@ package {
             } catch (error:Error) { stop("Game controls unavailable"); }
         }
         public function stop(message:String = "Stopped"):void {
-            timer.reset(); equipDeadline = 0; oldBarSkill = null;
+            timer.reset(); approached = null; equipDeadline = 0; oldBarSkill = null;
             world = null; avatar = null; order = null; classId = null; lastMessage = null;
             status(message, false);
         }
@@ -92,17 +93,22 @@ package {
                 }
                 if (worn !== classId) { stop("Stopped · equipped class changed"); return; }
                 if (!monster(avatar.target)) {
+                    approached = null;
                     if (autoTarget) {
                         for each (var next:Object in world.getMonstersByCell(room)) {
                             if (!monster(next)) continue;
                             world.setTarget(next);
-                            world.approachTarget();
+                            world.approachTarget(); approached = next;
                             status("Acquiring target",true);
                             return;
                         }
                     }
                     status(autoTarget ? "Waiting for a monster" : "Tap a monster in the game",true);
                     return;
+                }
+                if (approached !== avatar.target) {
+                    world.approachTarget();
+                    approached = avatar.target;
                 }
                 var now:Number = new Date().time;
                 if (now - Number(world.GCDTS) < Number(world.GCD)) { status("Global cooldown",true); return; }
@@ -111,17 +117,19 @@ package {
                     var step:Object = order[cursor];
                     var slot:int = int(step.slot);
                     var skill:Object = active[slot-1];
+                    var skillName:* = SkillBag.field(skill,"nam");
+                    var label:String = String(slot-1) + (skillName ? ": " + skillName : "");
                     if (skill && !skill.skillLock && !skill.lock && SkillRules.allows(step,game,avatar.target)) {
                         var stats:Object = avatar.dataLeaf.sta;
                         var haste:Number = stats ? Number(stats["$tha"]) : 0;
                         if (isNaN(haste)) haste = 0;
                         var cooldown:Number = Number(skill.OldCD != null ? skill.OldCD : skill.cd);
                         var cooling:Boolean = now - Number(skill.ts) < cooldown * (1 - Math.min(.5,Math.max(-1,haste)));
-                        if (cooling && step.wait) { status("Waiting for skill " + slot,true); return; }
+                        if (cooling && step.wait) { status("Waiting for skill " + label,true); return; }
                         if (!cooling && skill.isOK) {
                             world.testAction(skill);
                             cursor = (cursor + 1) % order.length;
-                            status("Running · skill " + slot,true);
+                            status("Running · " + label,true);
                             return;
                         }
                     }
