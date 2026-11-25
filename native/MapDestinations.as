@@ -1,5 +1,7 @@
 package {
     import flash.display.DisplayObject;
+    import flash.display.InteractiveObject;
+    import flash.events.MouseEvent;
     import flash.geom.Rectangle;
 
     /** Navigation uses the same Join, Go To and walking controls as the game. */
@@ -8,7 +10,8 @@ package {
         private var area:String;
         private var trail:Array = [];
         private var doors:Object = {};
-        private var destination:Object;
+        private var destination:Object, tried:Object;
+        private var lastCell:String, portalAt:String;
         private var monsterID:String;
         private var fromArea:String, waitingAt:String, shortcutAt:String;
         private var ownerWorld:Object, connection:Object, user:String;
@@ -17,7 +20,7 @@ package {
         public function get active():Boolean { return destination != null; }
         public function cancel():void {
             destination = null; monsterID = null; waitingAt = shortcutAt = null;
-            ownerWorld = connection = null; user = null;
+            ownerWorld = connection = null; user = lastCell = portalAt = null; tried = {};
         }
 
         public static function location(game:Object):Object {
@@ -74,6 +77,14 @@ package {
             var here:Object = location(game);
             if (!here || !dest || !dest.area || !dest.cell) return "Enter a map and try again";
             if (mob && dest.area != here.area) return "Map changed · scan again";
+            if (mob) {
+                var current:Object;
+                for each (var spawn:Object in mobs(game.world)) {
+                    if (spawn.id == mob) { current = spawn; break; }
+                }
+                if (!current) return "Monster is no longer on this map · refresh Mobs";
+                dest = {area:here.area,cell:current.cell};
+            }
             destination = dest; monsterID = mob; session = token;
             ownerWorld = game.world; connection = game.sfc; user = SkillBag.nameOf(game);
             fromArea = here.area; deadline = now + 45000; nextCheck = 0;
@@ -113,6 +124,9 @@ package {
 
         private function advance(game:Object, here:Object, now:int):String {
             var w:Object = game.world;
+            if (lastCell != here.cell) {
+                lastCell = here.cell; waitingAt = shortcutAt = portalAt = null;
+            }
             if (here.cell == destination.cell) {
                 if (monsterID) {
                     var found:Boolean = false;
@@ -136,9 +150,13 @@ package {
                 if (walk(game,marker)) return finish("Walking to " + here.cell + ", " + destination.pad);
             }
             if (waitingAt == here.cell && nextCheck > now) return null;
-            if (waitingAt == here.cell && shortcutAt != here.cell)
+            if (waitingAt == here.cell && shortcutAt != here.cell && portalAt != here.cell)
                 return finish("Travel stopped · check the exit to " + destination.cell);
             waitingAt = here.cell; nextCheck = now + 10000;
+            if (here.cell != destination.cell && portalAt != here.cell && tapPortal(game,destination,monsterID != null)) {
+                portalAt = here.cell; nextCheck = now + 3500;
+                return "Warping to " + destination.cell;
+            }
 
             // A player in the destination cell may offer the game's regular Go To shortcut.
             // Consult the live list on each selection and let the game enforce its own Go To rules.
@@ -146,15 +164,16 @@ package {
                 !SkillBag.field(SkillBag.field(w,"map"),"nogoto")) {
                 for each (var other:Object in w.getUsersByCell(destination.cell)) {
                     var leaf:Object = SkillBag.field(other,"dataLeaf");
-                    var who:* = SkillBag.field(leaf,"uoName") || SkillBag.field(leaf,"strUsername");
-                    if (!who || other === w.myAvatar || (!monsterID && leaf.strPad != destination.pad)) continue;
+                    var who:* = SkillBag.field(leaf,"uoName") || SkillBag.field(leaf,"strUsername") ||
+                        SkillBag.field(SkillBag.field(other,"objData"),"strUsername");
+                    if (!who || other === w.myAvatar || (!monsterID && SkillBag.field(leaf,"strPad") != destination.pad)) continue;
                     shortcutAt = here.cell; nextCheck = now + 3500;
                     w["goto"](String(who));
                     return "Going to " + destination.cell;
                 }
             }
 
-            shortcutAt = null;
+            shortcutAt = portalAt = null;
             var next:Object = {cell:destination.cell,pad:monsterID ? "" : destination.pad};
             if (walkExit(game,next)) return "Walking to " + next.cell;
             var route:Array = destination.route as Array;
@@ -166,6 +185,10 @@ package {
             }
             var first:Object = firstDoor(here.cell,next);
             if (first && walkExit(game,first)) return "Walking to " + first.cell;
+            if (monsterID) {
+                var onward:Object = nextUntriedExit(game,here.cell);
+                if (onward) return "Following map exits to " + destination.cell + " · " + onward.cell;
+            }
             return finish("Use the map exits to reach " + destination.cell +
                 (destination.pad ? ", " + destination.pad : ""));
         }
@@ -182,6 +205,43 @@ package {
                     if (seen["#"+edge.cell]) continue;
                     seen["#"+edge.cell] = true;
                     queue.push({cell:edge.cell,first:first});
+                }
+            }
+            return null;
+        }
+        private static function tapPortal(game:Object, dest:Object, anyPad:Boolean):Boolean {
+            for each (var entry:Object in SkillBag.field(game.world,"arrEvent")) {
+                var control:InteractiveObject = entry as InteractiveObject;
+                if (!control || !control.mouseEnabled || !control.hasEventListener(MouseEvent.CLICK) ||
+                    SkillBag.field(entry,"tCell") != dest.cell || (!anyPad && SkillBag.field(entry,"tPad") != dest.pad) ||
+                    SkillBag.field(entry,"enabled") === false) continue;
+                var parent:DisplayObject = control;
+                while (parent && parent != game && parent.visible && parent.alpha > 0) parent = parent.parent;
+                if (parent != game) continue;
+                control.dispatchEvent(new MouseEvent(MouseEvent.CLICK,true,false));
+                return true;
+            }
+            return false;
+        }
+        // Explore only the exits the current map exposes. Track directed edges so a dead end can be left.
+        private function nextUntriedExit(game:Object, cell:String):Object {
+            var exits:Object = SkillBag.field(game.world,"arrEvent");
+            for each (var entry:Object in exits) {
+                var to:* = SkillBag.field(entry,"tCell");
+                if (!to || to == cell || !(entry is DisplayObject)) continue;
+                var pad:String = SkillBag.field(entry,"tPad") || "";
+                var key:String = JSON.stringify([cell,to,pad]);
+                if (tried[key]) continue;
+                tried[key] = true;
+                if (walk(game,entry as DisplayObject)) return {cell:to,pad:pad};
+            }
+            // Known return paths can lead to an unvisited branch several screens back.
+            for (var node:String in doors) {
+                if (node == "#"+cell) continue;
+                for each (var edge:Object in doors[node]) {
+                    if (tried[JSON.stringify([node.substr(1),edge.cell,edge.pad])]) continue;
+                    var first:Object = firstDoor(cell,{cell:node.substr(1)});
+                    if (first && walkExit(game,first)) return first;
                 }
             }
             return null;

@@ -89,7 +89,7 @@ static void input(UIViewController *from, NSString *title, NSString *initial, BO
 
 @interface AQWChoiceList () <UISearchBarDelegate>
 @property(nonatomic,copy) NSArray *rows, *visibleRows;
-@property(nonatomic,copy) NSString *selected;
+@property(nonatomic,copy) NSString *selected, *listContext;
 @property(nonatomic,copy) void (^choose)(NSString *);
 @property(nonatomic) BOOL searchable;
 @end
@@ -104,22 +104,45 @@ static void input(UIViewController *from, NSString *title, NSString *initial, BO
     [super viewDidLoad];
     if (self.navigationController.viewControllers.firstObject == self)
         self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(close:)];
+    if (self.refreshList) {
+        self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
+            target:self action:@selector(rescan:)];
+        self.navigationItem.rightBarButtonItem.accessibilityLabel = @"Refresh map list";
+    }
     if (self.searchable) {
-        UISearchBar *search = [UISearchBar new]; search.placeholder = [self.title isEqual:@"Mobs"] ? @"Search monsters" : @"Search bag classes";
+        UISearchBar *search = [UISearchBar new]; search.placeholder = [self.title isEqual:@"Mobs"] ? @"Search by monster or cell" : @"Search bag classes";
         search.delegate = self; [search sizeToFit]; self.tableView.tableHeaderView = search;
         self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
     }
 }
+- (void)updateRows:(NSArray *)rows context:(NSString *)context choose:(void (^)(NSString *))choose {
+    self.rows = rows; self.listContext = context; self.choose = choose;
+    if (self.isViewLoaded) {
+        UISearchBar *bar = (UISearchBar *)self.tableView.tableHeaderView;
+        [self searchBar:bar textDidChange:bar.text];
+    } else self.visibleRows = rows;
+}
+- (void)rescan:(id)sender { if (self.refreshList) self.refreshList(); }
+- (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section { return self.listContext; }
+- (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section {
+    if (![self.title isEqual:@"Mobs"] || self.visibleRows.count) return nil;
+    return self.rows.count ? @"No monsters match your search." : @"No monsters are listed on this map.";
+}
+- (void)tableView:(UITableView *)table willDisplayCell:(UITableViewCell *)row forRowAtIndexPath:(NSIndexPath *)p {
+    row.accessibilityTraits |= UIAccessibilityTraitButton;
+}
 - (void)close:(id)sender { [self dismissViewControllerAnimated:YES completion:nil]; }
 - (void)searchBar:(UISearchBar *)bar textDidChange:(NSString *)text {
     self.visibleRows = text.length ? [self.rows filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *r, NSDictionary *bindings) {
-        return [r[@"name"] localizedCaseInsensitiveContainsString:text];
+        return [r[@"name"] localizedCaseInsensitiveContainsString:text] || [r[@"detail"] localizedCaseInsensitiveContainsString:text];
     }]] : self.rows;
     [self.tableView reloadData];
 }
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return self.visibleRows.count; }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)p {
     NSDictionary *r = self.visibleRows[p.row]; UITableViewCell *c = cell(r[@"name"],r[@"detail"],NO);
+    [c.contentView.heightAnchor constraintGreaterThanOrEqualToConstant:48].active = YES;
+    if (self.refreshList) c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     if ([r[@"id"] isEqual:self.selected]) c.accessoryType = UITableViewCellAccessoryCheckmark;
     return c;
 }

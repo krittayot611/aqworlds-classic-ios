@@ -117,19 +117,17 @@ package {
                     var step:Object = order[cursor];
                     var slot:int = int(step.slot);
                     var skill:Object = active[slot-1];
-                    var skillName:* = SkillBag.field(skill,"nam");
-                    var label:String = String(slot-1) + (skillName ? ": " + skillName : "");
                     if (skill && !skill.skillLock && !skill.lock && SkillRules.allows(step,game,avatar.target)) {
                         var stats:Object = avatar.dataLeaf.sta;
                         var haste:Number = stats ? Number(stats["$tha"]) : 0;
                         if (isNaN(haste)) haste = 0;
                         var cooldown:Number = Number(skill.OldCD != null ? skill.OldCD : skill.cd);
                         var cooling:Boolean = now - Number(skill.ts) < cooldown * (1 - Math.min(.5,Math.max(-1,haste)));
-                        if (cooling && step.wait) { status("Waiting for skill " + label,true); return; }
+                        if (cooling && step.wait) { status("Waiting for cooldown",true); return; }
                         if (!cooling && skill.isOK) {
                             world.testAction(skill);
                             cursor = (cursor + 1) % order.length;
-                            status("Running · " + label,true);
+                            status("Running",true);
                             return;
                         }
                     }

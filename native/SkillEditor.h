@@ -4,6 +4,8 @@
 @end
 
 @interface AQWChoiceList : AQWSkillTable
+@property(nonatomic,copy) void (^refreshList)(void);
+- (void)updateRows:(NSArray *)rows context:(NSString *)context choose:(void (^)(NSString *))choose;
 - (instancetype)initWithTitle:(NSString *)title rows:(NSArray<NSDictionary *> *)rows
                      selected:(NSString *)selected searchable:(BOOL)searchable
                        choose:(void (^)(NSString *itemID))choose;
