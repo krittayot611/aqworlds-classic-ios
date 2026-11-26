@@ -17,7 +17,7 @@ def map_observations(log, expected):
         raise RuntimeError('Map reader failed:\n' + log[-3000:])
     live = [json.loads(line.split('MAP_LIVE ', 1)[1]) for line in log.splitlines() if 'MAP_LIVE ' in line]
     samples = [json.loads(line.split('MAP_SAMPLE ', 1)[1]) for line in log.splitlines() if 'MAP_SAMPLE ' in line]
-    if len(samples) < 3 or any(marker not in log for marker in ('BOT_CHECK passed:', 'PROFILE_CHECK passed:', 'RULE_CHECK passed:', 'STEP_CHECK passed:', 'MAP_TOOLS_CHECK passed:')):
+    if len(samples) < 3 or any(marker not in log for marker in ('BOT_CHECK passed:', 'PROFILE_CHECK passed:', 'RULE_CHECK passed:', 'STEP_CHECK passed:', 'MAP_TOOLS_CHECK passed:', 'TIMING_CHECK passed:')):
         return None
     if len(live) != 1 or (live[0] is not None and not isinstance(live[0], str)) or samples != [*expected, None]:
         raise RuntimeError(f'Incorrect map readings: live={live!r}, samples={samples!r}')
@@ -26,6 +26,7 @@ def map_observations(log, expected):
             'account_bags_profile_storage_and_editor': True, 'conditional_skill_fixture': True,
             'right_edge_phone_and_tablet': True, 'inclusive_resource_and_party_rules': True, 'named_aura_stacks': True,
             'cooldown_switch_and_new_step_defaults': True, 'swipe_delete_skill_rows': True, 'neutral_stop_controls': True,
+            'target_reset_and_skill_timing': True, 'bookmark_pad_correction': True,
             'independent_map_controls': True, 'one_tap_remote_spawn_fixture': True,
             'online_map_transition_tested': False, 'physical_device_tested': False}
 
@@ -128,7 +129,8 @@ def check_device(device, output, app, bundle_id, expected):
                 evidence = map_observations(text, expected)
                 if evidence:
                     evidence['device'] = device['name']
-                    for name in ('condition-editor', 'skill-options', 'running-controls', 'rail-phone', 'rail-tablet'):
+                    for name in ('condition-editor', 'skill-options', 'running-controls', 'rail-phone', 'rail-tablet',
+                                 'set-editor', 'aura-editor', 'mobs', 'bookmarks'):
                         preview = data / f'Documents/aqw-{name}.png'
                         (output / f'{name}.png').write_bytes(preview.read_bytes())
                     (output / 'map-readings.json').write_text(json.dumps(evidence, indent=2) + '\n')

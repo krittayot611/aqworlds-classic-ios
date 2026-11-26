@@ -94,6 +94,12 @@ package {
                 delete world.uoTree.one.hudAuras;
                 world.uoTree.one.auras=[{nam:"Focus",val:4,e:0}];
                 need(SkillRules.allows(stacked,game,target),"raw aura fallback");
+                world.uoTree.one.hudAuras={FOCUS:{n:2,end:0}};
+                world.uoTree.one.auras=[{nam:"Focus",val:1.5},{nam:"FOCUS",val:1.5},{nam:"Focus",val:10,e:1}];
+                need(SkillRules.allows(stacked,game,target),"compare HUD stacks with summed active values");
+                world.uoTree.one.hudAuras.FOCUS.n=4; world.uoTree.one.auras=[{nam:"Focus",val:1}];
+                need(SkillRules.allows(stacked,game,target),"larger HUD count wins");
+                delete world.uoTree.one.hudAuras;
                 world.uoTree.one.auras[0].e=1;
                 need(!SkillRules.allows(stacked,game,target),"expired raw aura");
                 need(!SkillRules.valid([step(3,[{kind:"aura",who:"target",name:"",op:"missing"}])]),"blank aura rejected");
@@ -134,6 +140,8 @@ package {
                 bar[1]={id:12,isOK:true,ts:0,cd:0}; bot.tick();
                 need(used.length==count+2 && used[used.length-1]===4,"confirmed hotbar and class");
                 mage.bEquip=0; bot.tick(); need(!bot.running,"changing class stops");
+                checkTiming();
+                note("TIMING_CHECK passed: target resets, delay, cooldown timeout and cancellation");
                 checkDestinations();
                 note("MAP_TOOLS_CHECK passed: class ability names, room and pad, map-wide spawns, travel and cancellation");
                 note("PROFILE_CHECK passed: bag isolation, shared class keys, equip acknowledgement, aura stacks/expiry, HP/MP, all/any and skip");
@@ -141,6 +149,42 @@ package {
                 note("STEP_CHECK passed: wait on/off, use the next ready skill, retry a skipped slot and disabled conditions");
                 note("RULE_CHECK passed: inclusive points/percent, party membership and room, named aura stacks and saved rule modes");
                 note("BOT_CHECK passed: right edge controls, ordered skills, targeting, cooldowns and stop");
+            } finally { bot.dispose(); }
+        }
+
+        private static function checkTiming():void {
+            var t:Number=0, casts:Array=[];
+            var wolf:Object={objData:{strMonName:"Wolf",MonMapID:5},dataLeaf:{intHP:10},pMC:{}};
+            var twin:Object={objData:{strMonName:"Wolf",MonMapID:6},dataLeaf:{intHP:10},pMC:{}};
+            var player:Object={objData:{strUsername:"One"},items:[{ItemID:11,sType:"Class",sName:"A",bEquip:1}],
+                dataLeaf:{intHP:100},target:wolf};
+            var bar:Array=[null,{id:2,isOK:true,ts:0,cd:0},{id:3,isOK:true,ts:0,cd:0}];
+            var w:Object={myAvatar:player,strMapName:"fixture",strFrame:"r1",actions:{active:bar},GCDTS:0,GCD:0,
+                approachTarget:function():void{},testAction:function(skill:Object):void{casts.push(skill.id);}};
+            var game:Object={world:w,sfc:{myUserName:"One"}}, bag:SkillBag=new SkillBag();
+            var bot:SkuaRotation=new SkuaRotation(function():Object{return game;},function(msg:String,on:Boolean):void{},bag,function():Number{return t;});
+            var first:Object={slot:2,wait:true,rules:[],match:"all"}, second:Object={slot:3,wait:false,rules:[],match:"all"};
+            function expect(value:Boolean, msg:String):void { if (!value) throw new Error("Skill timing: "+msg); }
+            try {
+                bot.start([first,second],false,"11",bag.session(game),true);
+                player.target={objData:wolf.objData,dataLeaf:wolf.dataLeaf,pMC:{}};
+                bot.tick(); player.target=twin; bot.tick();
+                expect(casts.join()=="2,3,2","use the spawn ID for target changes");
+                player.target=null; bot.tick(); player.target=twin; bot.tick();
+                expect(casts.join()=="2,3,2,2","restart after losing the target"); bot.stop();
+                casts.length=0; player.target=wolf; bot.start([first,second],false,"11",bag.session(game));
+                player.target=twin; bot.tick(); expect(casts.join()=="2,3","old sets keep their position"); bot.stop();
+                casts.length=0; bar[1].ts=new Date().time; bar[1].cd=50000;
+                bot.start([first,second],false,"11",bag.session(game),false,100);
+                t=99; bot.tick(); expect(casts.length==0,"cooldown limit is in milliseconds");
+                t=100; bot.tick(); expect(casts.join()=="3","skip the timed out step"); bot.stop();
+                casts.length=0; first.delayMs=100; bar[1].ts=0;
+                bot.start([first,second],false,"11",bag.session(game));
+                t=199; bot.tick(); expect(!casts.length,"delay before ready cast");
+                player.target=wolf; bot.tick(); t=200; bot.tick(); expect(!casts.length,"a new target starts its own delay");
+                t=299; bot.tick(); expect(casts.join()=="2","delay finishes on the selected target");
+                bot.tick(); bot.tick(); bot.stop(); t=600; bot.tick(); expect(casts.join()=="2,3","stop cancels a pending cast");
+                first.delayMs=-1; expect(!SkillRules.valid([first]),"reject invalid saved timing");
             } finally { bot.dispose(); }
         }
 
@@ -226,6 +270,16 @@ package {
             var joinCount:int=joins.length;
             nav.begin(game,mark,null,3,12083);
             expect(joins.length==joinCount+1,"new account revalidates the destination"); nav.cancel();
+            w.strAreaName="other-3"; nav.begin(game,mark,null,3,13000);
+            var pad:Pad_1=new Pad_1(); pad.name="Left";
+            w.map={currentLabel:"r1",isPlaying:true,numChildren:1,Left:pad,getChildAt:function(i:int):Object{return pad;}};
+            w.strAreaName=mark.area; w.strFrame="r1"; w.strPad="Right";
+            var jumpCount:int=jumps.length;
+            nav.observe(game,3,13001); expect(jumps.length==jumpCount,"wait for a stable destination frame");
+            w.map.isPlaying=false;
+            nav.observe(game,3,13002); nav.observe(game,3,13003);
+            expect(jumps.length==jumpCount+1 && jumps[jumpCount]=="r1/Left/false","one correction to a real pad in the arrived cell");
+            w.strPad="Left"; expect(nav.observe(game,3,13004).indexOf("At ")==0 && !nav.active,"corrected pad confirmed");
             w.mapLoadInProgress=true; expect(!nav.bookmark(game),"ignore incomplete map transitions");
         }
 
@@ -369,3 +423,8 @@ package {
         }
     }
 }
+
+import flash.display.Sprite;
+
+// A named entry object supplied by the map used in the direct-travel check.
+internal final class Pad_1 extends Sprite {}
