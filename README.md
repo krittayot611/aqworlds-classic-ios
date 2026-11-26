@@ -13,13 +13,13 @@ An unofficial iOS and iPadOS client for AQWorlds Classic.
 | Channel | Version | IPA |
 | --- | --- | --- |
 | Stable | 1 | [Download Classic IPA (no bot)](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1/AQWorlds-Classic-1.ipa) |
-| Unstable | 1.1.6 | [Download IPA with skill and map tools](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.6-unstable/AQWorlds-Classic-1.1.6-unstable.ipa) |
+| Unstable | 1.1.8 | [Download IPA with Skills, Mobs and Bookmark](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.8-unstable/AQWorlds-Classic-1.1.8-unstable.ipa) |
 
-Classic 1 uses manual touch controls. iOS displays it as **1.0.0**. Open **Skills** on the right edge in 1.1.6 to use these tools.
+Classic 1 uses manual touch controls. iOS displays it as **1.0.0**. Unstable 1.1.8 reserves a toolbar beside the game on iPhone and iPad.
 
-- **Skill sets** show class abilities numbered 1–4 with their in-game names. Equip a class once to load its names on this device. Saved rotations keep their original casting order. Starting a rotation approaches the selected monster using the game's normal attack range.
-- **Mobs** lists monsters across the loaded map and shows their cells. Tap a monster to approach it in the current cell or travel toward its cell using the game's Go To and available exits.
-- **Mark Map** saves the current map instance, cell and entry pad on this device. Select a bookmark to go there or delete it. Returning to a different instance uses the normal map entrance, then follows available exits or the saved route. If travel stops, the drawer shows the destination to follow in-game.
+- **Skills** contains the start and stop button. Select a class and a saved set, or tap **Edit** to change the casting order and conditions.
+- **Mobs** lists individual spawns across the current map. Tap a monster to request its cell directly, even when there are no players or exits to follow. On arrival the app selects the exact spawn you tapped.
+- **Bookmark** saves the map instance, cell and entry pad on this device. Tap a saved location to warp to that room and pad. Swipe left and tap **Delete** to remove it. For a new cell or a different map instance, the app requests direct entry at the destination. The status shows where you arrived or whether the warp could be confirmed.
 
 <details>
 <summary>Version history and earlier downloads</summary>
@@ -33,6 +33,8 @@ Classic 1 uses manual touch controls. iOS displays it as **1.0.0**. Open **Skill
 | [1.1.4](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.4-unstable) | 0.1.13 | Health, mana and named aura conditions |
 | [1.1.5](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.5-unstable) | 0.1.14 | Cooldown switches and swipe to delete |
 | [1.1.6](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.6-unstable) | — | Named skills, map monsters and bookmarks |
+| [1.1.7](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.7-unstable) | — | Separate right-edge features, map-wide monster selection and a simpler skill overview |
+| [1.1.8](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.8-unstable) | — | Dedicated side toolbar, start/stop inside Skills and one-tap cell and pad travel |
 
 </details>
 
@@ -52,7 +54,7 @@ The game has its own options to remember your username and password on this devi
 
 ## Development status
 
-The project is in active development. Current work focuses on display layout, touch input, stability and compatibility across iPhone and iPad. Testing continues across devices and OS versions.
+The project is in active development. Current work focuses on display layout, touch input, stability and compatibility across iPhone and iPad. Use Grimlite Rev or Skua as the reference for every new feature. Check how the corresponding tool behaves and how players operate it, then adapt those steps for touch on iPhone and iPad. Keep controls inside the safe area, provide touch targets of at least 44 × 44 points, and let lists scroll on smaller screens.
 
 Report problems through [GitHub Issues](https://github.com/krittayot611/aqworlds-classic-ios/issues). Include your device model, OS version, app version and the steps needed to reproduce the issue. Screenshots are helpful for display problems.
 
@@ -73,8 +75,8 @@ Install the IPA with [Sideloadly](https://sideloadly.io/) on Windows or macOS.
 
 | Platform | Requirements | Status |
 | --- | --- | --- |
-| iPhone | 64-bit device, iOS 12.0 or later (12.2 for Unstable 1.1.6) | iOS build available |
-| iPad | 64-bit device, iOS 12.0 or later (12.2 for Unstable 1.1.6), or iPadOS | iOS build available |
+| iPhone | 64-bit device, iOS 12.0 or later (12.2 for Unstable 1.1.8) | iOS build available |
+| iPad | 64-bit device, iOS 12.0 or later (12.2 for Unstable 1.1.8), or iPadOS | iOS build available |
 | 32-bit iOS devices | — | Not supported |
 | Android | — | No build provided by this project |
 | Windows, macOS and Linux | — | No desktop game build provided |
