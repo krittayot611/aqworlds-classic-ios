@@ -2,7 +2,6 @@ package {
     import flash.display.Bitmap;
     import flash.display.MovieClip;
     import flash.display.StageScaleMode;
-    import flash.events.MouseEvent;
     import flash.filesystem.File;
     import flash.filesystem.FileMode;
     import flash.filesystem.FileStream;
@@ -155,7 +154,7 @@ package {
             var bar:Array = [null,{nam:"Blue Impact"},{nam:"Two"},{nam:"Three"},{nam:"Four"}];
             var w:Object = {strAreaName:"fixture-1234",strMapName:"fixture",strFrame:"Enter",strPad:"Spawn",
                 actions:{active:bar},myAvatar:player,mondefMap:{"3":{strMonName:"Wolf"}},
-                monmap:[{MonMapID:5,MonID:3,strFrame:"r1"},{MonMapID:6,MonID:3,strFrame:"Enter"}]};
+                monmap:[{MonMapID:5,MonID:3,strFrame:"r1",strPad:"Right"},{MonMapID:6,MonID:3,strFrame:"Enter"}]};
             game.world = w; game.sfc = {myUserName:"Player"};
             var bag:SkillBag = new SkillBag();
             expect(bag.snapshot(game).classes[1].skills[0]=="Blue Impact","button one reads the first class skill");
@@ -166,51 +165,67 @@ package {
             var wolf:Object = {objData:{MonMapID:5,strMonName:"Wolf"},dataLeaf:{strFrame:"r1",intHP:10},pMC:{}};
             w.monsters = [wolf];
             var mobs:Array = MapDestinations.mobs(w);
-            expect(mobs.length==2 && mobs[1].id=="5","map-wide spawns and live instances merge by map id");
+            expect(mobs.length==2 && mobs[1].id=="5" && mobs[1].pad=="Right","spawn list merges by ID and keeps known pad");
             var nav:MapDestinations = new MapDestinations();
-            nav.observe(game,1,0); w.strFrame="r1"; w.strPad="Left"; nav.observe(game,1,10);
-            var mark:Object = nav.bookmark(game);
-            expect(mark.area=="fixture-1234" && mark.cell=="r1" && mark.pad=="Left","exact mark");
-            var joined:String, walks:int=0, targets:int=0;
-            w.gotoTown=function(a:String,c:String,p:String):void { joined=[a,c,p].join("/"); };
-            w.getMonstersByCell=function(c:String):Array {return [wolf];};
-            w.setTarget=function(unit:Object):void { if (unit===wolf) ++targets; };
-            w.approachTarget=function():void { ++targets; };
-            w.walkToPoint=function(x:Number,y:Number,fast:Boolean):Boolean { ++walks; return !fast; };
-            var door:MovieClip=new MovieClip(); door.tCell="r1"; door.tPad="Left";
-            door.graphics.beginFill(0); door.graphics.drawRect(0,0,10,10); door.graphics.endFill();
-            game.addChild(door); w.arrEvent=[door];
-            w.strAreaName="other-1";
-            nav.begin(game,mark,null,1,20); nav.observe(game,1,30);
-            expect(joined=="fixture-1234/r1/Left" && nav.active && walks==0,"join exact bookmarked cell and pad");
-            w.strAreaName=mark.area; w.strFrame="r1"; w.strPad="Left";
-            expect(nav.observe(game,1,50).indexOf("At fixture-1234")==0 && !nav.active,"confirmed bookmark");
-            nav.begin(game,mark,"5",1,60); expect(targets==1 && !nav.active,"select monster without walking");
+            var jumps:Array=[], joins:Array=[], targets:Array=[];
+            var twin:Object={objData:{MonMapID:6,strMonName:"Wolf"},dataLeaf:{intHP:10},pMC:{}};
+            var visible:Array=[twin];
+            w.moveToCell=function(c:String,p:String,local:Boolean):void { jumps.push([c,p,local].join("/")); };
+            w.gotoTown=function(a:String,c:String,p:String):void { joins.push([a,c,p].join("/")); };
+            w.getMonstersByCell=function(c:String):Array {return visible;};
+            w.setTarget=function(unit:Object):void { targets.push(unit); };
+            function unexpected(...args):void { throw new Error("Unexpected movement or player lookup"); }
+            w.walkToPoint=w.approachTarget=w.getUsersByCell=w["goto"]=unexpected;
+            w.arrEvent=[];
+            nav.observe(game,1,0);
+            var mark:Object={area:w.strAreaName,cell:"r1",pad:"Left"};
+            nav.begin(game,{area:mark.area,cell:"stale"},"5",1,10);
+            expect(joins.join()=="fixture-1234/r1/Right" && !jumps.length && nav.active,
+                "unvisited live spawn requests direct entry even in an empty map");
+            nav.observe(game,1,20); expect(joins.length==1 && !targets.length,"one request while awaiting response");
+            w.strFrame="r1"; w.strPad="Right";
+            nav.observe(game,1,25);
+            expect(!targets.length && nav.active,"wait for exact spawn, ignoring duplicate name");
+            visible.push(wolf); nav.observe(game,1,26);
+            expect(targets[0]===wolf && !nav.active,"select exact live spawn on arrival");
+            expect(nav.bookmark(game).pad=="Right","mark actual entry pad");
+            nav.begin(game,mark,null,1,30);
+            expect(jumps.join()=="r1/Left/false" && nav.active,"jump to another pad in the same cell");
+            nav.observe(game,1,31); expect(nav.active && jumps.length==1,"wait for actual pad");
+            w.strPad="left";
+            expect(nav.observe(game,1,32).indexOf("At fixture-1234")==0 && !nav.active,"confirmed bookmarked pad");
+
             w.strFrame="Enter"; w.strPad="Spawn";
-            var warps:int=0;
-            door.addEventListener(MouseEvent.CLICK,function(event:MouseEvent):void { ++warps; w.strFrame="r1"; });
-            nav.begin(game,{area:mark.area,cell:"stale"},"5",1,61);
-            expect(warps==1 && nav.active,"direct portal to current spawn cell");
-            nav.observe(game,1,62); expect(targets==2 && !nav.active,"select exact spawn");
-            expect(nav.begin(game,mark,"999",1,63).indexOf("Monster is no longer")==0 && !nav.active,"removed spawn");
-            w.strFrame="Enter"; door.visible=false;
-            var ally:Object = {objData:{strUsername:"Ally"},dataLeaf:{strPad:"Left"}};
-            var jumped:Boolean=false;
-            w.getUsersByCell=function(cell:String):Array { return cell=="r1" ? [ally] : []; };
-            w["goto"]=function(name:String):void { jumped=name=="Ally"; w.strFrame="r1"; };
-            nav.begin(game,mark,"5",1,64); nav.observe(game,1,65);
-            expect(jumped && targets==3 && !nav.active,"select after Go To without approach");
-            w.strFrame="Enter"; w.map={nogoto:true}; jumped=false;
-            expect(nav.begin(game,mark,"5",1,66).indexOf("Direct warp unavailable")==0 &&
-                !nav.active && !jumped && walks==0,"no walk fallback for mobs");
-            expect(nav.begin(game,mark,null,1,67).indexOf("Direct warp unavailable")==0 &&
-                !nav.active && walks==0,"no walk fallback for bookmarks");
-            w.strAreaName="other-2";
-            expect(nav.begin(game,mark,"5",1,65).indexOf("Map changed")==0 && !nav.active,"stale mob selection");
-            nav.begin(game,mark,null,1,70);
-            nav.observe(game,2,75); expect(nav.active,"preserve a join across an avatar replacement");
-            game.sfc.myUserName = "Other"; nav.observe(game,3,80);
-            expect(!nav.active,"stop on account switch");
+            nav.begin(game,mark,"5",1,40); nav.observe(game,1,41);
+            expect(jumps.length==2 && jumps[1]=="r1/Right/false" && nav.active,"direct jump to a known cell without portals or players");
+            w.strFrame="r1"; w.strPad="Right"; nav.observe(game,1,45);
+            expect(targets.length==2 && !nav.active,"arrival selects without an approach");
+            wolf.dataLeaf.intHP=0;
+            expect(nav.begin(game,mark,"5",1,46)=="Monster unavailable" && targets.length==2,"dead spawn");
+            expect(nav.begin(game,mark,"999",1,47).indexOf("Monster is no longer")==0 && !nav.active,"removed spawn");
+            w.strAreaName="other-2"; w.strFrame="Enter"; w.strPad="Spawn";
+            expect(nav.begin(game,mark,"5",1,50).indexOf("Map changed")==0 && !nav.active,"stale mob selection");
+            nav.begin(game,mark,null,1,55); nav.observe(game,2,56);
+            expect(nav.active && joins[1]=="fixture-1234/r1/Left","keep exact instance join across an avatar refresh");
+            w.strAreaName=mark.area;
+            expect(nav.observe(game,2,60).indexOf("instead")>=0 && !nav.active && jumps.length==2,
+                "report a redirected join and do not issue a follow-up jump");
+            nav.begin(game,mark,null,2,65);
+            expect(joins.length==3 && nav.active,"re-entered instance does not reuse earlier cell history");
+            nav.observe(game,2,12066);
+            expect(!nav.active && joins.length==3 && jumps.length==2,"unconfirmed warp expires without a retry");
+            nav.begin(game,mark,null,2,12070);
+            w.strFrame="r1"; w.strPad="Left";
+            expect(nav.observe(game,2,12071).indexOf("At fixture-1234")==0 && !nav.active,"confirmed direct join");
+            w.strFrame="Enter"; w.strPad="Spawn"; nav.begin(game,mark,null,2,12072);
+            nav.cancel(); w.strFrame="r1"; w.strPad="Left";
+            expect(!nav.observe(game,2,12073) && !nav.active,"cancel ignores late arrival");
+            w.strFrame="Enter"; w.strPad="Spawn"; nav.begin(game,mark,null,2,12080);
+            game.sfc.myUserName="Other"; player.objData.strUsername="Other";
+            expect(nav.observe(game,3,12081).indexOf("account changed")>=0 && !nav.active,"stop on account switch");
+            var joinCount:int=joins.length;
+            nav.begin(game,mark,null,3,12083);
+            expect(joins.length==joinCount+1,"new account revalidates the destination"); nav.cancel();
             w.mapLoadInProgress=true; expect(!nav.bookmark(game),"ignore incomplete map transitions");
         }
 
