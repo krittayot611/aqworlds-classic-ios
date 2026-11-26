@@ -47,10 +47,12 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
 @property(nonatomic,weak) UIViewController *modal;
 @property(nonatomic,weak) AQWChoiceList *mapList;
 @property(nonatomic,copy) NSString *requestedMapTool;
-@property(nonatomic,strong) UIButton *handle, *mobsButton, *bookmarkButton, *cancelTravel, *quickRun, *run, *chooseClass, *chooseSet, *addSet, *editSet, *deleteSet;
+@property(nonatomic,strong) UIButton *handle, *mobsButton, *bookmarkButton, *cancelTravel, *run, *chooseClass, *chooseSet, *addSet, *editSet, *deleteSet;
 @property(nonatomic,strong) UILabel *stateLine, *travelNotice, *dot;
 @property(nonatomic,strong) NSArray<UIButton *> *targets;
-@property(nonatomic,strong) UIView *card;
+@property(nonatomic,strong) UIView *card, *dock;
+@property(nonatomic,weak) UIView *gameSurface;
+@property(nonatomic) CGAffineTransform originalTransform;
 @property(nonatomic,strong) UIStackView *setActions;
 @property(nonatomic,strong) UIScrollView *scroll;
 @end
@@ -84,10 +86,13 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     self.handle = button(@"Skills", @"Open skill automation", self, @selector(toggle:));
     self.mobsButton = button(@"Mobs", @"Mobs, find a monster on this map", self, @selector(mobsTapped:));
     self.bookmarkButton = button(@"Bookmark", @"Bookmark, save or visit a location", self, @selector(marksTapped:));
-    self.quickRun = button(@"▶", @"Start skill set", self, @selector(runTapped:));
+    self.dock = [UIView new];
+    self.dock.backgroundColor = AQWCharcoal();
+    self.dock.userInteractionEnabled = NO;
+    [self addSubview:self.dock];
     self.cancelTravel = button(@"Cancel", @"Cancel map travel", self, @selector(cancelTapped:));
     self.cancelTravel.hidden = YES;
-    for (UIButton *control in @[self.handle,self.mobsButton,self.bookmarkButton,self.quickRun,self.cancelTravel]) {
+    for (UIButton *control in @[self.handle,self.mobsButton,self.bookmarkButton,self.cancelTravel]) {
         control.titleLabel.font = [[UIFontMetrics defaultMetrics] scaledFontForFont:
             [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold] maximumPointSize:18];
         control.titleLabel.adjustsFontForContentSizeCategory = YES;
@@ -95,9 +100,29 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
         control.titleLabel.minimumScaleFactor = .83;
         control.contentEdgeInsets = UIEdgeInsetsMake(0,3,0,3);
         control.backgroundColor = AQWCharcoal();
-        control.layer.cornerRadius = 12;
+        control.layer.cornerRadius = 9;
+        control.layer.borderWidth = 0;
         control.layer.borderColor = AQWSecondary().CGColor;
         [self addSubview:control];
+    }
+    if (@available(iOS 15.0,*)) {
+        NSArray *tiles = @[self.handle,self.mobsButton,self.bookmarkButton];
+        NSArray *icons = @[@"slider.horizontal.3",@"scope",@"bookmark"];
+        for (NSUInteger i=0;i<tiles.count;i++) {
+            UIButton *tile=tiles[i];
+            UIButtonConfiguration *config = [UIButtonConfiguration plainButtonConfiguration];
+            config.title = [tile titleForState:UIControlStateNormal];
+            config.image = [UIImage systemImageNamed:icons[i]];
+            config.imagePlacement = NSDirectionalRectEdgeTop;
+            config.imagePadding = 3;
+            config.preferredSymbolConfigurationForImage = [UIImageSymbolConfiguration configurationWithPointSize:17 weight:UIImageSymbolWeightMedium];
+            config.baseForegroundColor = UIColor.whiteColor;
+            config.contentInsets = NSDirectionalEdgeInsetsMake(2,0,2,0);
+            config.titleTextAttributesTransformer = ^NSDictionary *(NSDictionary *incoming) {
+                NSMutableDictionary *out = [incoming mutableCopy]; out[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption2]; return out;
+            };
+            tile.configuration = config;
+        }
     }
     self.travelNotice = label(@"",14,UIFontWeightSemibold,UIColor.whiteColor);
     self.travelNotice.numberOfLines = 0;
@@ -193,13 +218,11 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     NSDictionary *profile = [self.sets selectedFor:self.classID];
     NSString *name = [self className:self.classID];
     BOOL canStart = name.length && profile && self.session;
-    self.quickRun.hidden = self.expanded || (!self.running && !canStart);
-    self.quickRun.enabled = !self.pending;
     self.handle.accessibilityLabel = self.expanded ? @"Close skill automation" : @"Open skill automation";
     self.handle.accessibilityValue = self.running ? @"Running" : @"Stopped";
     self.handle.accessibilityTraits = UIAccessibilityTraitButton | (self.expanded ? UIAccessibilityTraitSelected : 0);
-    self.handle.backgroundColor = self.expanded ? AQWSilver() : AQWCharcoal();
-    [self.handle setTitleColor:self.expanded ? AQWCharcoal() : UIColor.whiteColor forState:UIControlStateNormal];
+    self.handle.backgroundColor = self.expanded ? AQWPanel() : AQWCharcoal();
+    [self.handle setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
     self.handle.layer.borderColor = (self.running ? AQWSilver() : AQWSecondary()).CGColor;
     self.dot.text = self.running ? @"●" : @"○";
     self.dot.textColor = self.running ? AQWSilver() : AQWSecondary();
@@ -225,29 +248,48 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     NSString *buttonTitle = self.pending ? @"One moment…" : [NSString stringWithFormat:@"%@  %@",symbol,verb];
     [self.run setTitle:buttonTitle forState:UIControlStateNormal];
     self.run.accessibilityLabel = verb;
-    for (UIButton *control in @[self.run, self.quickRun]) {
+    {
+        UIButton *control = self.run;
         control.backgroundColor = self.running ? AQWPanel() : AQWSilver();
         control.layer.borderColor = AQWSilver().CGColor;
         control.layer.borderWidth = self.running ? 1 : 0;
         [control setTitleColor:self.running ? AQWSilver() : AQWCharcoal() forState:UIControlStateNormal];
     }
-    self.quickRun.accessibilityLabel = verb;
-    [self.quickRun setTitle:symbol forState:UIControlStateNormal];
     self.run.enabled = !self.pending && (self.running || canStart);
     self.run.alpha = self.run.enabled ? 1 : .48;
     [self setNeedsLayout];
 }
 
+- (void)attachBesideGame:(UIView *)game {
+    UIView *container=game.superview;
+    if (!container) return;
+    if (self.superview != container) {
+        [self removeFromSuperview];
+        self.originalTransform=game.transform;
+        self.gameSurface=game;
+        self.frame=container.bounds;
+        [container insertSubview:self aboveSubview:game];
+    }
+    [self setNeedsLayout];
+    [self layoutIfNeeded];
+}
+- (void)removeFromSuperview {
+    if (self.gameSurface) self.gameSurface.transform=self.originalTransform;
+    self.gameSurface=nil;
+    [super removeFromSuperview];
+}
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGRect safe = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
     if (CGRectIsEmpty(safe)) return;
     CGFloat width = CGRectGetWidth(safe), height = CGRectGetHeight(safe);
     BOOL regular = self.traitCollection.horizontalSizeClass == UIUserInterfaceSizeClassRegular && height >= 600;
-    CGFloat gap = regular ? 8 : 4, tileWidth = regular ? 90 : 74, tileHeight = regular ? 54 : 44;
+    CGFloat gap = regular ? 8 : 4, tileWidth = regular ? 90 : 74, tileHeight = regular ? 64 : 50;
     CGFloat right = CGRectGetMaxX(safe) - 4, x = floor(right - tileWidth);
     CGFloat top = CGRectGetMinY(safe) + 6, y = top;
-    for (UIButton *control in @[self.handle,self.mobsButton,self.bookmarkButton,self.quickRun,self.cancelTravel]) {
+    CGFloat dockLeft = x-4;
+    self.dock.frame = CGRectMake(dockLeft,0,CGRectGetMaxX(self.bounds)-dockLeft,CGRectGetHeight(self.bounds));
+    for (UIButton *control in @[self.handle,self.mobsButton,self.bookmarkButton,self.cancelTravel]) {
         if (control.hidden) continue;
         control.frame = CGRectMake(x,y,tileWidth,tileHeight);
         y += tileHeight + gap;
@@ -255,9 +297,18 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     CGFloat panelWidth = MIN(regular ? 340 : 284, width - tileWidth - 18);
     CGFloat panelHeight = MIN(400,height - 12);
     self.card.frame = CGRectMake(x - 6 - panelWidth,top,panelWidth,panelHeight);
-    CGFloat noticeWidth = MIN(300,width - tileWidth - 22);
-    CGFloat noticeHeight = MIN(height - 12,MAX(44,[self.travelNotice sizeThatFits:CGSizeMake(noticeWidth-16,CGFLOAT_MAX)].height+12));
-    self.travelNotice.frame = CGRectMake(x-6-noticeWidth, CGRectGetMaxY(safe)-6-noticeHeight, noticeWidth,noticeHeight);
+    self.travelNotice.frame = CGRectMake(x,y,tileWidth,MAX(0,MIN(140,CGRectGetMaxY(safe)-y-4)));
+    UIView *game = self.gameSurface;
+    if (game && !CGRectIsEmpty(game.bounds)) {
+        CGFloat end = self.expanded ? CGRectGetMinX(self.card.frame)-4 : dockLeft-2;
+        CGRect available = CGRectMake(CGRectGetMinX(safe),CGRectGetMinY(safe),MAX(1,end-CGRectGetMinX(safe)),height);
+        CGFloat oldScale = MIN(CGRectGetWidth(game.bounds)/960.,CGRectGetHeight(game.bounds)/550.);
+        CGFloat factor = MIN(1.,MIN(available.size.width/960.,height/550.)/oldScale);
+        CGPoint center = [self convertPoint:CGPointMake(CGRectGetMidX(available),CGRectGetMidY(available)) toView:game.superview];
+        CGAffineTransform t=CGAffineTransformScale(self.originalTransform,factor,factor);
+        t.tx += center.x-game.center.x; t.ty += center.y-game.center.y;
+        game.transform=t;
+    }
 
 }
 
@@ -676,6 +727,15 @@ static BOOL checkStepEditing(void) {
         AQWMapControlFixture *view = [[AQWMapControlFixture alloc] initWithFrame:(CGRect){CGPointZero,size.CGSizeValue}
             command:^(NSDictionary *request){ last=request; }];
         if (size.CGSizeValue.width == 852) view.testInsets = UIEdgeInsetsMake(0,47,21,47);
+        UIView *container=[[UIView alloc] initWithFrame:view.bounds];
+        UIView *surface=[[UIView alloc] initWithFrame:view.bounds];
+        [container addSubview:surface];
+        [view attachBesideGame:surface];
+        CGRect bounds=surface.bounds;
+        CGFloat fit=MIN(bounds.size.width/960.,bounds.size.height/550.);
+        CGRect canvas=CGRectMake((bounds.size.width-960.*fit)/2,(bounds.size.height-550.*fit)/2,960.*fit,550.*fit);
+        CGRect visible=[surface convertRect:canvas toView:view];
+        if (CGRectIntersectsRect(visible,view.dock.frame) || !CGRectContainsRect(view.bounds,visible)) return NO;
         view.sets = [[AQWSkillSets alloc] initWithDefaults:defaults];
         view.preferences = defaults;
         [view showBag:@{@"session":@1,@"classes":@[a],@"equipped":@"10"}];
@@ -695,7 +755,7 @@ static BOOL checkStepEditing(void) {
         if ([defaults arrayForKey:@"aqw.map.bookmarks"].count) return NO;
         [view layoutIfNeeded];
         CGRect safe = UIEdgeInsetsInsetRect(view.bounds,view.safeAreaInsets);
-        for (UIButton *item in @[view.handle,view.mobsButton,view.bookmarkButton,view.quickRun]) {
+        for (UIButton *item in @[view.handle,view.mobsButton,view.bookmarkButton]) {
             CGRect f=item.frame;
             if (item.superview != view || item.hidden || CGRectGetWidth(f)<44 || CGRectGetHeight(f)<44 ||
                 !CGRectContainsRect(safe,f) || [view hitTest:CGPointMake(CGRectGetMidX(f),CGRectGetMidY(f)) withEvent:nil]!=item) return NO;
@@ -743,19 +803,21 @@ static BOOL checkStepEditing(void) {
         if (![last[@"action"] isEqual:@"start"] || ![last[@"classId"] isEqual:@"10"] ||
             ![last[@"steps"] isEqual:steps] || ![last[@"session"] isEqual:@3]) return NO;
         [view showState:@"Running" running:YES];
-        for (UIButton *control in @[view.run,view.quickRun])
+        for (UIButton *control in @[view.run])
             if (![control.backgroundColor isEqual:AQWPanel()] || ![[control titleColorForState:UIControlStateNormal] isEqual:AQWSilver()] ||
                 ![control.accessibilityLabel isEqual:@"Stop"]) return NO;
-        if (![[view.quickRun titleForState:UIControlStateNormal] isEqual:@"■"] || ![view.dot.text isEqual:@"●"]) return NO;
+        if (![view.dot.text isEqual:@"●"] || ![view.run isDescendantOfView:view.card]) return NO;
         if (size.CGSizeValue.width==1024) { [view layoutIfNeeded]; captureView(view.card,@"aqw-running-controls.png"); }
         [view setExpanded:NO];
-        if (view.quickRun.hidden) return NO;
-        [view.quickRun sendActionsForControlEvents:UIControlEventTouchUpInside];
+        if (!view.card.hidden) return NO;
+        [view setExpanded:YES];
+        [view.run sendActionsForControlEvents:UIControlEventTouchUpInside];
         if (![last[@"action"] isEqual:@"stop"]) return NO;
         [view showState:@"Stopped" running:NO];
-        if (view.quickRun.hidden || !view.quickRun.enabled) return NO;
         [view showBag:@{@"session":@4,@"classes":@[],@"equipped":@""}];
-        if (view.run.enabled || !view.quickRun.hidden || view.chooseClass.enabled) return NO;
+        if (view.run.enabled || view.chooseClass.enabled) return NO;
+        [view removeFromSuperview];
+        if (!CGAffineTransformIsIdentity(surface.transform)) return NO;
     }
     [sets remove:@"legacy" forClass:@"10"]; [sets migrateLegacyForEquipped:@"10"];
     return [sets setsFor:@"10"].count==0;

@@ -152,8 +152,7 @@ static FREObject showTools(FREContext context, void *unused, uint32_t argc, FREO
                     }
                 }];
         }
-        if (session.drawer.superview != host) [host addSubview:session.drawer];
-        [host bringSubviewToFront:session.drawer];
+        [session.drawer attachBesideGame:host];
         if (verify) [session.drawer setExpanded:YES];
         shown = YES;
     });
