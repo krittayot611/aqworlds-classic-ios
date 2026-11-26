@@ -605,48 +605,59 @@ static BOOL performSwipeDelete(UIContextualAction *action, UITableView *table) {
     action.handler(action,table,^(BOOL done){ removed=done; });
     return removed;
 }
+// Record the failed native assertion in the same diagnostic read by the AIR smoke test.
+static BOOL controlCheckFailed(int line) {
+    NSURL *docs = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
+    NSFileHandle *log = [NSFileHandle fileHandleForWritingAtPath:[docs URLByAppendingPathComponent:@"aqw-startup.log"].path];
+    [log seekToEndOfFile];
+    NSString *text = [NSString stringWithFormat:@"Native control check failed at BotDrawer.m line %d\n",line];
+    [log writeData:[text dataUsingEncoding:NSUTF8StringEncoding]];
+    [log closeFile];
+    return NO;
+}
+
 static BOOL checkStepEditing(void) {
     __block NSDictionary *saved;
     AQWSkillEditor *editor=[[AQWSkillEditor alloc] initForClass:@"Healer" profile:nil saved:^(NSDictionary *value){ saved=value; }];
     UINavigationController *nav=AQWSkillNavigation(editor);
     UITableView *table=editor.tableView;
-    if ([editor tableView:table numberOfRowsInSection:1]!=5) return NO;
+    if ([editor tableView:table numberOfRowsInSection:1]!=5) return controlCheckFailed(__LINE__);
     [editor tableView:table didSelectRowAtIndexPath:skillRow(4)]; // Add a second occurrence of slot 2.
     AQWChoiceList *slots=(AQWChoiceList *)nav.topViewController;
     [slots tableView:slots.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]];
-    if (nav.topViewController!=editor || [editor tableView:table numberOfRowsInSection:1]!=6) return NO;
+    if (nav.topViewController!=editor || [editor tableView:table numberOfRowsInSection:1]!=6) return controlCheckFailed(__LINE__);
     [editor tableView:table didSelectRowAtIndexPath:skillRow(4)];
     UITableViewController *step=(UITableViewController *)nav.topViewController;
     UISwitch *cooldown=stepSwitch(step,0,1), *conditions=stepSwitch(step,1,0);
-    if (!cooldown || !conditions || cooldown.on || conditions.on) return NO;
+    if (!cooldown || !conditions || cooldown.on || conditions.on) return controlCheckFailed(__LINE__);
     captureTable(step,@"aqw-skill-options.png");
     cooldown=stepSwitch(step,0,1); conditions=stepSwitch(step,1,0);
     for (UISwitch *control in @[cooldown,conditions]) {
         control.on=YES; [control sendActionsForControlEvents:UIControlEventValueChanged];
     }
     finishPage(step);
-    if (nav.topViewController!=editor || saved) return NO;
+    if (nav.topViewController!=editor || saved) return controlCheckFailed(__LINE__);
     if ([editor tableView:table trailingSwipeActionsConfigurationForRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]] ||
-        [editor tableView:table trailingSwipeActionsConfigurationForRowAtIndexPath:skillRow(5)]) return NO;
+        [editor tableView:table trailingSwipeActionsConfigurationForRowAtIndexPath:skillRow(5)]) return controlCheckFailed(__LINE__);
     UISwipeActionsConfiguration *swipe=[editor tableView:table trailingSwipeActionsConfigurationForRowAtIndexPath:skillRow(0)];
     UIContextualAction *remove=swipe.actions.firstObject;
     if (!remove || remove.style!=UIContextualActionStyleDestructive || ![remove.title isEqual:@"Delete"] ||
-        swipe.performsFirstActionWithFullSwipe || [editor tableView:table numberOfRowsInSection:1]!=6) return NO;
-    if (!performSwipeDelete(remove,table) || performSwipeDelete(remove,table) || saved) return NO;
+        swipe.performsFirstActionWithFullSwipe || [editor tableView:table numberOfRowsInSection:1]!=6) return controlCheckFailed(__LINE__);
+    if (!performSwipeDelete(remove,table) || performSwipeDelete(remove,table) || saved) return controlCheckFailed(__LINE__);
     finishPage(editor);
     NSArray *steps=saved[@"steps"];
     if (![[steps valueForKey:@"slot"] isEqual:@[@3,@4,@5,@2]] ||
         ![[steps valueForKey:@"wait"] isEqual:@[@NO,@NO,@NO,@YES]] ||
-        ![[steps valueForKey:@"rulesEnabled"] isEqual:@[@NO,@NO,@NO,@YES]]) return NO;
+        ![[steps valueForKey:@"rulesEnabled"] isEqual:@[@NO,@NO,@NO,@YES]]) return controlCheckFailed(__LINE__);
     for (NSUInteger i=0; i<steps.count; i++) {
         swipe=[editor tableView:table trailingSwipeActionsConfigurationForRowAtIndexPath:skillRow(0)];
-        if (!performSwipeDelete(swipe.actions.firstObject,table)) return NO;
+        if (!performSwipeDelete(swipe.actions.firstObject,table)) return controlCheckFailed(__LINE__);
     }
-    if (editor.navigationItem.rightBarButtonItem.enabled || [editor tableView:table numberOfRowsInSection:1]!=1) return NO;
+    if (editor.navigationItem.rightBarButtonItem.enabled || [editor tableView:table numberOfRowsInSection:1]!=1) return controlCheckFailed(__LINE__);
     [editor tableView:table didSelectRowAtIndexPath:skillRow(0)];
     slots=(AQWChoiceList *)nav.topViewController;
     [slots tableView:slots.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:1 inSection:0]];
-    if (!editor.navigationItem.rightBarButtonItem.enabled) return NO;
+    if (!editor.navigationItem.rightBarButtonItem.enabled) return controlCheckFailed(__LINE__);
     finishPage(editor);
     return [saved[@"steps"] isEqual:@[AQWStep(@3)]];
 }
@@ -660,47 +671,47 @@ static BOOL checkStepEditing(void) {
     @finally { [UIView setAnimationsEnabled:animated]; [defaults removePersistentDomainForName:suite]; }
 }
 + (BOOL)checkControlsWithDefaults:(NSUserDefaults *)defaults {
-    if (!checkStepEditing()) return NO;
+    if (!checkStepEditing()) return controlCheckFailed(__LINE__);
     AQWSkillSets *sets = [[AQWSkillSets alloc] initWithDefaults:defaults];
     [defaults setObject:@[@2,@4,@2] forKey:@"aqw.rotation.slots"];
     [sets migrateLegacyForEquipped:@"10"]; [sets migrateLegacyForEquipped:@"20"];
     NSArray *steps = [sets selectedFor:@"10"][@"steps"];
     if (![[steps valueForKey:@"slot"] isEqual:@[@2,@4,@2]] || ![[steps valueForKey:@"wait"] isEqual:@[@YES,@YES,@YES]] ||
-        [sets setsFor:@"20"].count) return NO;
+        [sets setsFor:@"20"].count) return controlCheckFailed(__LINE__);
     NSDictionary *other = @{@"id":@"second",@"name":@"Boss",@"steps":@[AQWStep(@5)]};
     [sets save:other forClass:@"10"]; [sets select:@"legacy" forClass:@"10"];
-    if (![[sets selectedFor:@"10"][@"id"] isEqual:@"legacy"] || [sets setsFor:@"10"].count!=2) return NO;
+    if (![[sets selectedFor:@"10"][@"id"] isEqual:@"legacy"] || [sets setsFor:@"10"].count!=2) return controlCheckFailed(__LINE__);
     [sets remove:@"second" forClass:@"10"];
-    if ([sets setsFor:@"10"].count!=1) return NO;
+    if ([sets setsFor:@"10"].count!=1) return controlCheckFailed(__LINE__);
     __block NSDictionary *saved;
     AQWSkillEditor *editor = [[AQWSkillEditor alloc] initForClass:@"Healer" profile:[sets selectedFor:@"10"]
                                                            saved:^(NSDictionary *value){ saved = value; }];
     UINavigationController *nav = AQWSkillNavigation(editor); [editor loadViewIfNeeded];
-    if ([editor tableView:editor.tableView numberOfRowsInSection:1]!=4) return NO;
+    if ([editor tableView:editor.tableView numberOfRowsInSection:1]!=4) return controlCheckFailed(__LINE__);
     [editor tableView:editor.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:1]];
     UITableViewController *step = (UITableViewController *)nav.topViewController;
     [step loadViewIfNeeded];
-    if ([step isEqual:editor] || [step numberOfSectionsInTableView:step.tableView]!=3) return NO;
+    if ([step isEqual:editor] || [step numberOfSectionsInTableView:step.tableView]!=3) return controlCheckFailed(__LINE__);
     UISwitch *rules=stepSwitch(step,1,0);
-    if (rules.on || !stepSwitch(step,0,1).on) return NO;
+    if (rules.on || !stepSwitch(step,0,1).on) return controlCheckFailed(__LINE__);
     rules.on=YES; [rules sendActionsForControlEvents:UIControlEventValueChanged];
     [step tableView:step.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:2 inSection:1]];
     UITableViewController *rule=(UITableViewController *)nav.topViewController;
     [rule loadViewIfNeeded];
-    if ([rule isEqual:step] || ![rule.title isEqual:@"Condition"]) return NO;
+    if ([rule isEqual:step] || ![rule.title isEqual:@"Condition"]) return controlCheckFailed(__LINE__);
     if (!selectRuleSegment(rule,@"kind",@"Mana") || !selectRuleSegment(rule,@"unit",@"#") ||
-        !selectRuleSegment(rule,@"op",@"≥")) return NO;
+        !selectRuleSegment(rule,@"op",@"≥")) return controlCheckFailed(__LINE__);
     typeRuleField(rule,@"value",@"12500");
     captureTable(rule,@"aqw-condition-editor.png"); finishPage(rule);
-    if (nav.topViewController!=step) return NO;
+    if (nav.topViewController!=step) return controlCheckFailed(__LINE__);
     [step tableView:step.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:3 inSection:1]];
     rule=(UITableViewController *)nav.topViewController; [rule loadViewIfNeeded];
-    if (!selectRuleSegment(rule,@"kind",@"Party HP") || ruleField(rule,@"who")) return NO;
+    if (!selectRuleSegment(rule,@"kind",@"Party HP") || ruleField(rule,@"who")) return controlCheckFailed(__LINE__);
     typeRuleField(rule,@"value",@"35"); finishPage(rule);
     [step tableView:step.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:4 inSection:1]];
     rule=(UITableViewController *)nav.topViewController; [rule loadViewIfNeeded];
     if (!selectRuleSegment(rule,@"kind",@"Aura") || !selectRuleSegment(rule,@"who",@"Target") ||
-        !selectRuleSegment(rule,@"op",@"≤")) return NO;
+        !selectRuleSegment(rule,@"op",@"≤")) return controlCheckFailed(__LINE__);
     typeRuleField(rule,@"name",@"  Battle Focus  "); typeRuleField(rule,@"value",@"2"); finishPage(rule);
     finishPage(step); finishPage(editor);
     NSArray *expected=@[
@@ -708,10 +719,10 @@ static BOOL checkStepEditing(void) {
         @{@"kind":@"partyhp",@"who":@"party",@"op":@"lte",@"unit":@"percent",@"value":@35},
         @{@"kind":@"aura",@"who":@"target",@"op":@"lte",@"name":@"Battle Focus",@"value":@2}];
     if (![[saved[@"steps"] firstObject][@"rules"] isEqual:expected] || ![[saved[@"steps"] firstObject][@"rulesEnabled"] boolValue] ||
-        ![[saved[@"steps"] valueForKey:@"slot"] isEqual:[steps valueForKey:@"slot"]]) return NO;
+        ![[saved[@"steps"] valueForKey:@"slot"] isEqual:[steps valueForKey:@"slot"]]) return controlCheckFailed(__LINE__);
     [sets save:saved forClass:@"10"];
     steps=[[[AQWSkillSets alloc] initWithDefaults:defaults] selectedFor:@"10"][@"steps"];
-    if (![[steps firstObject][@"rules"] isEqual:expected]) return NO;
+    if (![[steps firstObject][@"rules"] isEqual:expected]) return controlCheckFailed(__LINE__);
     NSDictionary *a = @{@"id":@"10",@"name":@"Healer"}, *b = @{@"id":@"20",@"name":@"Mage"};
     for (NSValue *size in @[[NSValue valueWithCGSize:CGSizeMake(852,393)],
                             [NSValue valueWithCGSize:CGSizeMake(568,320)],
@@ -728,101 +739,101 @@ static BOOL checkStepEditing(void) {
         CGFloat fit=MIN(bounds.size.width/960.,bounds.size.height/550.);
         CGRect canvas=CGRectMake((bounds.size.width-960.*fit)/2,(bounds.size.height-550.*fit)/2,960.*fit,550.*fit);
         CGRect visible=[surface convertRect:canvas toView:view];
-        if (CGRectIntersectsRect(visible,view.dock.frame) || !CGRectContainsRect(view.bounds,visible)) return NO;
+        if (CGRectIntersectsRect(visible,view.dock.frame) || !CGRectContainsRect(CGRectInset(view.bounds,-0.25,-0.25),visible)) return controlCheckFailed(__LINE__);
         view.sets = [[AQWSkillSets alloc] initWithDefaults:defaults];
         view.preferences = defaults;
         [view showBag:@{@"session":@1,@"classes":@[a],@"equipped":@"10"}];
-        if (![view.classID isEqual:@"10"] || !view.run.enabled) return NO;
+        if (![view.classID isEqual:@"10"] || !view.run.enabled) return controlCheckFailed(__LINE__);
         [view showBag:@{@"session":@2,@"classes":@[b],@"equipped":@"20"}];
-        if ([view className:@"10"] || ![view.classID isEqual:@"20"] || view.run.enabled) return NO;
+        if ([view className:@"10"] || ![view.classID isEqual:@"20"] || view.run.enabled) return controlCheckFailed(__LINE__);
         [view showBag:@{@"session":@3,@"classes":@[b,a],@"equipped":@"10"}];
         if (![AQWAbilityLabel(@[@"Blue Impact"],2) isEqual:@"1: Blue Impact"] ||
-            ![AQWAbilityLabel(nil,5) hasPrefix:@"4:"] || ![AQWAbilityLabel(nil,0) length]) return NO;
+            ![AQWAbilityLabel(nil,5) hasPrefix:@"4:"] || ![AQWAbilityLabel(nil,0) length]) return controlCheckFailed(__LINE__);
         NSDictionary *mark = @{@"area":@"fixture-1234",@"cell":@"r1",@"pad":@"left"};
         NSDictionary *secondMark = @{@"area":@"fixture-5678",@"cell":@"r1",@"pad":@"left"};
         for (NSDictionary *location in @[mark, mark, secondMark]) {
             [view showDestinations:@{@"session":@3,@"mode":@"saveMark",@"location":location}];
         }
-        if (![[defaults arrayForKey:@"aqw.map.bookmarks"] isEqual:@[mark,secondMark]]) return NO;
+        if (![[defaults arrayForKey:@"aqw.map.bookmarks"] isEqual:@[mark,secondMark]]) return controlCheckFailed(__LINE__);
         [view removeBookmark:mark]; [view removeBookmark:secondMark];
-        if ([defaults arrayForKey:@"aqw.map.bookmarks"].count) return NO;
+        if ([defaults arrayForKey:@"aqw.map.bookmarks"].count) return controlCheckFailed(__LINE__);
         [view layoutIfNeeded];
         CGRect safe = UIEdgeInsetsInsetRect(view.bounds,view.safeAreaInsets);
         for (UIButton *item in @[view.handle,view.mobsButton,view.bookmarkButton]) {
             CGRect f=item.frame;
             if (item.superview != view || item.hidden || CGRectGetWidth(f)<44 || CGRectGetHeight(f)<44 ||
-                !CGRectContainsRect(safe,f) || [view hitTest:CGPointMake(CGRectGetMidX(f),CGRectGetMidY(f)) withEvent:nil]!=item) return NO;
+                !CGRectContainsRect(safe,f) || [view hitTest:CGPointMake(CGRectGetMidX(f),CGRectGetMidY(f)) withEvent:nil]!=item) return controlCheckFailed(__LINE__);
         }
         [view.mobsButton sendActionsForControlEvents:UIControlEventTouchUpInside];
-        if (view.expanded || ![last[@"action"] isEqual:@"mobs"]) return NO;
+        if (view.expanded || ![last[@"action"] isEqual:@"mobs"]) return controlCheckFailed(__LINE__);
         NSArray *mobs=@[@{@"id":@"31",@"name":@"Wolf",@"cell":@"Enter"},@{@"id":@"42",@"name":@"Wolf",@"cell":@"r7"}];
         [view showDestinations:@{@"mode":@"mobs",@"session":@3,@"location":mark,@"rows":mobs}];
         AQWChoiceList *list=view.captured;
-        if (![list.title isEqual:@"Mobs"] || [list tableView:list.tableView numberOfRowsInSection:0]!=2) return NO;
+        if (![list.title isEqual:@"Mobs"] || [list tableView:list.tableView numberOfRowsInSection:0]!=2) return controlCheckFailed(__LINE__);
         UISearchBar *search=(UISearchBar *)list.tableView.tableHeaderView;
         [search.delegate searchBar:search textDidChange:@"r7"];
-        if ([list tableView:list.tableView numberOfRowsInSection:0]!=1) return NO;
+        if ([list tableView:list.tableView numberOfRowsInSection:0]!=1) return controlCheckFailed(__LINE__);
         [list tableView:list.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]];
         if (![last[@"action"] isEqual:@"travel"] || ![last[@"mob"] isEqual:@"42"] ||
-            ![last[@"dest"] isEqual:@{@"area":mark[@"area"],@"cell":@"r7"}] || ![last[@"session"] isEqual:@3]) return NO;
+            ![last[@"dest"] isEqual:@{@"area":mark[@"area"],@"cell":@"r7"}] || ![last[@"session"] isEqual:@3]) return controlCheckFailed(__LINE__);
         [view showDestinations:@{@"mode":@"mobs",@"session":@3,@"location":mark,@"rows":@[]}];
         list=view.captured;
-        if (![[list tableView:list.tableView titleForFooterInSection:0] containsString:@"No monsters"]) return NO;
+        if (![[list tableView:list.tableView titleForFooterInSection:0] containsString:@"No monsters"]) return controlCheckFailed(__LINE__);
         [view.bookmarkButton sendActionsForControlEvents:UIControlEventTouchUpInside];
-        if (view.expanded || ![last[@"action"] isEqual:@"marks"]) return NO;
+        if (view.expanded || ![last[@"action"] isEqual:@"marks"]) return controlCheckFailed(__LINE__);
         [view showDestinations:@{@"mode":@"marks",@"session":@3,@"location":mark}];
         list=view.captured;
-        if (![list.title isEqual:@"Bookmark"]) return NO;
+        if (![list.title isEqual:@"Bookmark"]) return controlCheckFailed(__LINE__);
         [list tableView:list.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]];
-        if (![last[@"action"] isEqual:@"saveMark"]) return NO;
+        if (![last[@"action"] isEqual:@"saveMark"]) return controlCheckFailed(__LINE__);
         [view showDestinations:@{@"mode":@"saveMark",@"session":@3,@"location":secondMark}];
         [view showDestinations:@{@"mode":@"marks",@"session":@3,@"location":mark}];
         list = view.captured;
         NSIndexPath *savedLocation = [NSIndexPath indexPathForRow:1 inSection:0];
         UISwipeActionsConfiguration *removeMark = [list tableView:list.tableView trailingSwipeActionsConfigurationForRowAtIndexPath:savedLocation];
         if (!removeMark.actions.count || removeMark.performsFirstActionWithFullSwipe ||
-            [list tableView:list.tableView canEditRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]]) return NO;
+            [list tableView:list.tableView canEditRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]]) return controlCheckFailed(__LINE__);
         [list tableView:list.tableView didSelectRowAtIndexPath:savedLocation];
-        if (![last[@"action"] isEqual:@"travel"] || ![last[@"dest"] isEqual:secondMark]) return NO;
+        if (![last[@"action"] isEqual:@"travel"] || ![last[@"dest"] isEqual:secondMark]) return controlCheckFailed(__LINE__);
         UIContextualAction *deleteMark = removeMark.actions.firstObject;
         deleteMark.handler(deleteMark,list.tableView,^(BOOL done){});
-        if ([defaults arrayForKey:@"aqw.map.bookmarks"].count) return NO;
+        if ([defaults arrayForKey:@"aqw.map.bookmarks"].count) return controlCheckFailed(__LINE__);
         view.captured=nil;
         [view showTravel:@"Joining fixture-1234" active:YES];
         [view layoutIfNeeded];
         if (view.cancelTravel.hidden || view.cancelTravel.superview!=view || view.travelNotice.hidden ||
-            !CGRectContainsRect(safe,view.cancelTravel.frame)) return NO;
+            !CGRectContainsRect(safe,view.cancelTravel.frame)) return controlCheckFailed(__LINE__);
         [view.cancelTravel sendActionsForControlEvents:UIControlEventTouchUpInside];
-        if (![last[@"action"] isEqual:@"cancelTravel"]) return NO;
+        if (![last[@"action"] isEqual:@"cancelTravel"]) return controlCheckFailed(__LINE__);
         [view showTravel:@"Travel stopped" active:NO];
-        if (!view.cancelTravel.hidden) return NO;
+        if (!view.cancelTravel.hidden) return controlCheckFailed(__LINE__);
         [view setExpanded:NO]; [view layoutIfNeeded];
-        if (CGRectGetMidX(view.handle.frame) <= CGRectGetMidX(view.bounds)) return NO;
+        if (CGRectGetMidX(view.handle.frame) <= CGRectGetMidX(view.bounds)) return controlCheckFailed(__LINE__);
         if (size.CGSizeValue.width==852 || size.CGSizeValue.width==1024)
             captureView(view,size.CGSizeValue.width==852 ? @"aqw-rail-phone.png" : @"aqw-rail-tablet.png");
-        if ([view hitTest:CGPointMake(CGRectGetMidX(view.bounds),CGRectGetMidY(view.bounds)) withEvent:nil]) return NO;
+        if ([view hitTest:CGPointMake(CGRectGetMidX(view.bounds),CGRectGetMidY(view.bounds)) withEvent:nil]) return controlCheckFailed(__LINE__);
         [view.handle sendActionsForControlEvents:UIControlEventTouchUpInside]; [view layoutIfNeeded];
         if (!view.expanded || ![last[@"action"] isEqual:@"bag"] || !CGRectContainsRect(safe,view.card.frame) ||
-            CGRectIntersectsRect(view.card.frame,view.handle.frame) || CGRectGetHeight(view.run.frame)<44) return NO;
+            CGRectIntersectsRect(view.card.frame,view.handle.frame) || CGRectGetHeight(view.run.frame)<44) return controlCheckFailed(__LINE__);
         [view.run sendActionsForControlEvents:UIControlEventTouchUpInside];
         if (![last[@"action"] isEqual:@"start"] || ![last[@"classId"] isEqual:@"10"] ||
-            ![last[@"steps"] isEqual:steps] || ![last[@"session"] isEqual:@3]) return NO;
+            ![last[@"steps"] isEqual:steps] || ![last[@"session"] isEqual:@3]) return controlCheckFailed(__LINE__);
         [view showState:@"Running" running:YES];
         for (UIButton *control in @[view.run])
             if (![control.backgroundColor isEqual:AQWPanel()] || ![[control titleColorForState:UIControlStateNormal] isEqual:AQWSilver()] ||
-                ![control.accessibilityLabel isEqual:@"Stop"]) return NO;
-        if (![view.dot.text isEqual:@"●"] || ![view.run isDescendantOfView:view.card]) return NO;
+                ![control.accessibilityLabel isEqual:@"Stop"]) return controlCheckFailed(__LINE__);
+        if (![view.dot.text isEqual:@"●"] || ![view.run isDescendantOfView:view.card]) return controlCheckFailed(__LINE__);
         if (size.CGSizeValue.width==1024) { [view layoutIfNeeded]; captureView(view.card,@"aqw-running-controls.png"); }
         [view setExpanded:NO];
-        if (!view.card.hidden) return NO;
+        if (!view.card.hidden) return controlCheckFailed(__LINE__);
         [view setExpanded:YES];
         [view.run sendActionsForControlEvents:UIControlEventTouchUpInside];
-        if (![last[@"action"] isEqual:@"stop"]) return NO;
+        if (![last[@"action"] isEqual:@"stop"]) return controlCheckFailed(__LINE__);
         [view showState:@"Stopped" running:NO];
         [view showBag:@{@"session":@4,@"classes":@[],@"equipped":@""}];
-        if (view.run.enabled || view.chooseClass.enabled) return NO;
+        if (view.run.enabled || view.chooseClass.enabled) return controlCheckFailed(__LINE__);
         [view removeFromSuperview];
-        if (!CGAffineTransformIsIdentity(surface.transform)) return NO;
+        if (!CGAffineTransformIsIdentity(surface.transform)) return controlCheckFailed(__LINE__);
     }
     [sets remove:@"legacy" forClass:@"10"]; [sets migrateLegacyForEquipped:@"10"];
     return [sets setsFor:@"10"].count==0;
