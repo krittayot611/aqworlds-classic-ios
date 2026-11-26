@@ -13,13 +13,23 @@ An unofficial iOS and iPadOS client for AQWorlds Classic.
 | Channel | Version | IPA |
 | --- | --- | --- |
 | Stable | 1 | [Download Classic IPA (no bot)](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1/AQWorlds-Classic-1.ipa) |
-| Unstable | 1.1.8 | [Download IPA with Skills, Mobs and Bookmark](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.8-unstable/AQWorlds-Classic-1.1.8-unstable.ipa) |
+| Unstable | 1.1.9 | [Download IPA with Skills, Mobs and Bookmark](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.9-unstable/AQWorlds-Classic-1.1.9-unstable.ipa) |
 
-Classic 1 uses manual touch controls. iOS displays it as **1.0.0**. Unstable 1.1.8 reserves a toolbar beside the game on iPhone and iPad.
+Classic 1 uses manual touch controls. iOS displays it as **1.0.0**. Unstable 1.1.9 puts three touch controls in a gray toolbar beside the game. The game scales to fit when you open Skills.
 
-- **Skills** contains the start and stop button. Select a class and a saved set, or tap **Edit** to change the casting order and conditions.
-- **Mobs** lists individual spawns across the current map. Tap a monster to request its cell directly, even when there are no players or exits to follow. On arrival the app selects the exact spawn you tapped.
-- **Bookmark** saves the map instance, cell and entry pad on this device. Tap a saved location to warp to that room and pad. Swipe left and tap **Delete** to remove it. For a new cell or a different map instance, the app requests direct entry at the destination. The status shows where you arrived or whether the warp could be confirmed.
+| Open | What you can do |
+| --- | --- |
+| **Skills** | Choose a class from the signed-in character’s bag, select a set, then tap **Start** or **Stop**. Accounts on the same device share sets for classes they own. Tap **Edit** to see the casting order and the class’s four numbered skill names once its skill bar has loaded. Swipe left on a skill to delete it. |
+| **Mobs** | Search individual spawns across the current map by name, cell or spawn ID. Tap a row to warp to its cell and select that spawn. Two monsters with the same name have separate rows. |
+| **Bookmark** | Save the current map and room number, cell and pad. Tap an entry to warp back. If you arrive in the right cell at another pad, the app checks the loaded cell and retries once when the saved pad exists. Swipe left and tap **Delete** to remove a bookmark. |
+
+**Skill conditions.** New skills use the next ready skill in order. Turn on **Wait for cooldown** to hold that step. **Use rules** starts off. Combine Health, Mana or Party HP in points or percent with named auras on yourself or your target. Party HP checks living party members in the current cell. Each step can require all conditions or any one of them. Aura rules support presence, absence and stack counts.
+
+**Timing.** Turn on **Reset on target change** to restart the combo when you switch monsters. **Cooldown wait limit** applies to the whole set in milliseconds (0 means unlimited). **Delay before cast** applies to one skill (0 means immediate). Both timings default to 0.
+
+**Targeting and travel.** **Selected** uses the monster you tap. **Auto in room** picks a monster in the current cell and approaches it using its normal attack range. For map-wide travel, tap a destination in Mobs or Bookmark. Starting a warp stops the current skill rotation. The app displays the arrival or a status if the server redirects the character or the destination cannot be confirmed. [Skua’s Auto and Jump controls](https://github.com/auqw/Skua/blob/master/usage.md) · [Grimlite Rev toolbar](https://auqw.github.io/d/guide.html)
+
+**Interface previews.** These captures come from the iPhone and iPad simulators. The menus show sample class, monster and bookmark data. The ZIP includes both screen sizes, the running controls and the condition editors. [Skill set](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.9-unstable/AQWorlds-Classic-1.1.9-Skills.png) · [Mobs](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.9-unstable/AQWorlds-Classic-1.1.9-Mobs.png) · [Bookmark](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.9-unstable/AQWorlds-Classic-1.1.9-Bookmark.png) · [All screenshots (ZIP)](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.9-unstable/AQWorlds-Classic-1.1.9-UI.zip)
 
 <details>
 <summary>Version history and earlier downloads</summary>
@@ -35,6 +45,7 @@ Classic 1 uses manual touch controls. iOS displays it as **1.0.0**. Unstable 1.1
 | [1.1.6](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.6-unstable) | — | Named skills, map monsters and bookmarks |
 | [1.1.7](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.7-unstable) | — | Separate right-edge features, map-wide monster selection and a simpler skill overview |
 | [1.1.8](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.8-unstable) | — | Dedicated side toolbar, start/stop inside Skills and one-tap cell and pad travel |
+| [1.1.9](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.9-unstable) | — | Reset on target change, cooldown wait limit, per-skill delay, named aura stack counts and bookmark pad correction |
 
 </details>
 
@@ -75,8 +86,8 @@ Install the IPA with [Sideloadly](https://sideloadly.io/) on Windows or macOS.
 
 | Platform | Requirements | Status |
 | --- | --- | --- |
-| iPhone | 64-bit device, iOS 12.0 or later (12.2 for Unstable 1.1.8) | iOS build available |
-| iPad | 64-bit device, iOS 12.0 or later (12.2 for Unstable 1.1.8), or iPadOS | iOS build available |
+| iPhone | 64-bit device, iOS 12.0 or later (12.2 for Unstable 1.1.9) | iOS build available |
+| iPad | 64-bit device, iOS 12.0 or later (12.2 for Unstable 1.1.9), or iPadOS | iOS build available |
 | 32-bit iOS devices | — | Not supported |
 | Android | — | No build provided by this project |
 | Windows, macOS and Linux | — | No desktop game build provided |
