@@ -1,9 +1,12 @@
 package {
+    import flash.display.DisplayObject;
+    import flash.utils.getQualifiedClassName;
     public final class MapDestinations {
         private var destination:Object, origin:Object;
         private var monsterID:String;
         private var requestWorld:Object, requestConnection:Object, requestUser:String;
         private var deadline:int;
+        private var checkEntryPad:Boolean;
 
         // Only cells actually seen in this account's current map instance are cached.
         private var seenWorld:Object, seenConnection:Object, seenUser:String, seenArea:String;
@@ -11,7 +14,7 @@ package {
 
         public function get active():Boolean { return destination != null; }
         public function cancel():void {
-            destination = origin = null; monsterID = null;
+            destination = origin = null; monsterID = null; checkEntryPad = false;
             requestWorld = requestConnection = null; requestUser = null;
         }
 
@@ -88,6 +91,7 @@ package {
                 w.moveToCell(dest.cell,dest.pad,false);
             } else if (SkillBag.field(w,"gotoTown") is Function) {
                 // Ask for the exact entry, including on first visit, and honour the returned location.
+                checkEntryPad = !mob;
                 w.gotoTown(dest.area,dest.cell,dest.pad);
             } else return finish("Map controls unavailable");
             return "Warping to " + dest.area + " · " + dest.cell;
@@ -106,8 +110,27 @@ package {
             }
             var status:String = arrival(game.world,here);
             if (status) return status;
+            if (checkEntryPad && here.cell == destination.cell) {
+                var pad:String = savedPadOnFrame(SkillBag.field(game.world,"map"),here.cell,destination.pad);
+                if (pad && SkillBag.field(game.world,"moveToCell") is Function) {
+                    checkEntryPad = false;
+                    game.world.moveToCell(here.cell,pad,false);
+                    return "Moving to entry pad " + pad;
+                }
+            }
             if (here.cell != destination.cell && (here.area != origin.area || here.cell != origin.cell))
                 return finish("Arrived in " + here.area + " · " + here.cell + " instead");
+            return null;
+        }
+        private static function savedPadOnFrame(map:Object, cell:String, wanted:String):String {
+            if (!map || SkillBag.field(map,"currentLabel") !== cell || SkillBag.field(map,"isPlaying") ||
+                !(SkillBag.field(map,"getChildAt") is Function)) return null;
+            for (var i:int=0; i<int(map.numChildren); i++) {
+                var child:DisplayObject = map.getChildAt(i) as DisplayObject;
+                if (child && child.name && child.name.toLowerCase() == wanted.toLowerCase() &&
+                    SkillBag.field(map,child.name) === child && /(^|::)Pad_\d+$/.test(getQualifiedClassName(child)))
+                    return child.name;
+            }
             return null;
         }
         private function finish(message:String):String { cancel(); return message; }

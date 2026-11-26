@@ -127,7 +127,8 @@ package {
                 if (request.action == "start" && !foreground) rotation.stop("Stopped · app in background");
                 else if (request.action == "start") {
                     stopTravel("Travel stopped");
-                    rotation.start(request.steps as Array,request["auto"] === true,request.classId,uint(request.session));
+                    rotation.start(request.steps as Array,request["auto"] === true,request.classId,uint(request.session),
+                                   request.resetOnTarget === true,int(request.timeoutMs));
                 }
                 else if (request.action == "bag") { lastBag = null; refreshBag(); }
                 else if (request.action == "stop") rotation.stop();

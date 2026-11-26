@@ -534,7 +534,8 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     if (!self.running && (!profile || ![self className:self.classID] || !self.session)) return;
     self.pending = YES; [self refresh];
     self.command(self.running ? @{@"action":@"stop"} :
-        @{@"action":@"start", @"session":self.session, @"classId":self.classID, @"auto":@(self.autoTarget), @"steps":profile[@"steps"]});
+        @{@"action":@"start", @"session":self.session, @"classId":self.classID, @"auto":@(self.autoTarget), @"steps":profile[@"steps"],
+          @"resetOnTarget":profile[@"resetOnTarget"] ?: @NO, @"timeoutMs":profile[@"timeoutMs"] ?: @0});
 }
 - (void)showMap:(NSString *)map {
     self.mobsButton.accessibilityValue = self.bookmarkButton.accessibilityValue = map;
@@ -591,6 +592,14 @@ static void captureTable(UITableViewController *page, NSString *filename) {
     [page.tableView reloadData];
     captureView(page.view,filename);
 }
+static void captureMapList(AQWChoiceList *page, NSString *filename) {
+    UINavigationController *nav = AQWSkillNavigation(page);
+    nav.view.frame = CGRectMake(0,0,510,330);
+    [nav.view layoutIfNeeded];
+    [page.tableView reloadData]; [page.tableView layoutIfNeeded];
+    captureView(nav.view,filename);
+    [nav setViewControllers:@[[UIViewController new]] animated:NO];
+}
 static NSIndexPath *skillRow(NSInteger index) {
     return [NSIndexPath indexPathForRow:index inSection:1];
 }
@@ -620,7 +629,13 @@ static BOOL checkStepEditing(void) {
     __block NSDictionary *saved;
     AQWSkillEditor *editor=[[AQWSkillEditor alloc] initForClass:@"Healer" profile:nil saved:^(NSDictionary *value){ saved=value; }];
     UINavigationController *nav=AQWSkillNavigation(editor);
+    editor.abilityNames=@[@"Healing Word",@"Heart Beat",@"Energy Flow",@"Clear Mind"];
     UITableView *table=editor.tableView;
+    UISwitch *reset=stepSwitch(editor,0,1);
+    if (!reset || reset.on) return controlCheckFailed(__LINE__);
+    reset.on=YES; [reset sendActionsForControlEvents:UIControlEventValueChanged];
+    nav.view.frame=CGRectMake(0,0,510,540); [nav.view layoutIfNeeded]; [table reloadData];
+    captureView(nav.view,@"aqw-set-editor.png");
     if ([editor tableView:table numberOfRowsInSection:1]!=5) return controlCheckFailed(__LINE__);
     [editor tableView:table didSelectRowAtIndexPath:skillRow(4)]; // Add a second occurrence of slot 2.
     AQWChoiceList *slots=(AQWChoiceList *)nav.topViewController;
@@ -645,6 +660,7 @@ static BOOL checkStepEditing(void) {
         swipe.performsFirstActionWithFullSwipe || [editor tableView:table numberOfRowsInSection:1]!=6) return controlCheckFailed(__LINE__);
     if (!performSwipeDelete(remove,table) || performSwipeDelete(remove,table) || saved) return controlCheckFailed(__LINE__);
     finishPage(editor);
+    if (![saved[@"resetOnTarget"] isEqual:@YES] || ![saved[@"timeoutMs"] isEqual:@0]) return controlCheckFailed(__LINE__);
     NSArray *steps=saved[@"steps"];
     if (![[steps valueForKey:@"slot"] isEqual:@[@3,@4,@5,@2]] ||
         ![[steps valueForKey:@"wait"] isEqual:@[@NO,@NO,@NO,@YES]] ||
@@ -712,7 +728,8 @@ static BOOL checkStepEditing(void) {
     rule=(UITableViewController *)nav.topViewController; [rule loadViewIfNeeded];
     if (!selectRuleSegment(rule,@"kind",@"Aura") || !selectRuleSegment(rule,@"who",@"Target") ||
         !selectRuleSegment(rule,@"op",@"≤")) return controlCheckFailed(__LINE__);
-    typeRuleField(rule,@"name",@"  Battle Focus  "); typeRuleField(rule,@"value",@"2"); finishPage(rule);
+    typeRuleField(rule,@"name",@"  Battle Focus  "); typeRuleField(rule,@"value",@"2");
+    captureTable(rule,@"aqw-aura-editor.png"); finishPage(rule);
     finishPage(step); finishPage(editor);
     NSArray *expected=@[
         @{@"kind":@"mp",@"who":@"self",@"op":@"gte",@"unit":@"raw",@"value":@12500},
@@ -770,6 +787,7 @@ static BOOL checkStepEditing(void) {
         [view showDestinations:@{@"mode":@"mobs",@"session":@3,@"location":mark,@"rows":mobs}];
         AQWChoiceList *list=view.captured;
         if (![list.title isEqual:@"Mobs"] || [list tableView:list.tableView numberOfRowsInSection:0]!=2) return controlCheckFailed(__LINE__);
+        if (size.CGSizeValue.width==1024) captureMapList(list,@"aqw-mobs.png");
         UISearchBar *search=(UISearchBar *)list.tableView.tableHeaderView;
         [search.delegate searchBar:search textDidChange:@"r7"];
         if ([list tableView:list.tableView numberOfRowsInSection:0]!=1) return controlCheckFailed(__LINE__);
@@ -789,6 +807,7 @@ static BOOL checkStepEditing(void) {
         [view showDestinations:@{@"mode":@"saveMark",@"session":@3,@"location":secondMark}];
         [view showDestinations:@{@"mode":@"marks",@"session":@3,@"location":mark}];
         list = view.captured;
+        if (size.CGSizeValue.width==1024) captureMapList(list,@"aqw-bookmarks.png");
         NSIndexPath *savedLocation = [NSIndexPath indexPathForRow:1 inSection:0];
         UISwipeActionsConfiguration *removeMark = [list tableView:list.tableView trailingSwipeActionsConfigurationForRowAtIndexPath:savedLocation];
         if (!removeMark.actions.count || removeMark.performsFirstActionWithFullSwipe ||

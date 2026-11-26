@@ -87,6 +87,22 @@ static void input(UIViewController *from, NSString *title, NSString *initial, BO
     [from presentViewController:a animated:YES completion:nil];
 }
 
+static UITableViewCell *toggleCell(NSString *title, NSString *key, BOOL on, id target, SEL action) {
+    UITableViewCell *row = cell(title,nil,NO);
+    UISwitch *control = [UISwitch new];
+    control.on = on;
+    control.onTintColor = [UIColor colorWithWhite:.53 alpha:1];
+    control.accessibilityLabel = title;
+    control.accessibilityIdentifier = key;
+    [control addTarget:target action:action forControlEvents:UIControlEventValueChanged];
+    row.accessoryView = control;
+    row.selectionStyle = UITableViewCellSelectionStyleNone;
+    return row;
+}
+static NSString *milliseconds(NSInteger value) {
+    return [NSString stringWithFormat:@"%ld ms",(long)value];
+}
+
 @interface AQWChoiceList () <UISearchBarDelegate>
 @property(nonatomic,copy) NSArray *rows, *visibleRows;
 @property(nonatomic,copy) NSString *selected, *listContext;
@@ -388,18 +404,6 @@ static NSArray *abilityLabels(NSArray *names) {
 - (void)switchChanged:(UISwitch *)control {
     self.step[control.accessibilityIdentifier] = @(control.on);
 }
-- (UITableViewCell *)switchRow:(NSString *)title key:(NSString *)key {
-    UITableViewCell *row = cell(title,nil,NO);
-    UISwitch *control = [UISwitch new];
-    control.on = [self.step[key] boolValue];
-    control.onTintColor = [UIColor colorWithWhite:.53 alpha:1];
-    control.accessibilityLabel = title;
-    control.accessibilityIdentifier = key;
-    [control addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
-    row.accessoryView = control;
-    row.selectionStyle = UITableViewCellSelectionStyleNone;
-    return row;
-}
 - (void)done:(id)sender { self.commit(self.value); [self.navigationController popViewControllerAnimated:YES]; }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 3; }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)s { return @[@"Hotbar",@"Conditions",@"Sequence"][s]; }
@@ -407,15 +411,18 @@ static NSArray *abilityLabels(NSArray *names) {
     return s == 0 ? @"Off uses the next ready skill in order. On waits for this skill." : nil;
 }
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)s {
-    if (s==0) return 2;
+    if (s==0) return 3;
     if (s==1) return 2+self.rules.count+(self.rules.count<8);
     return self.canUp+self.canDown+1;
 }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)p {
-    if (p.section==0) return p.row==0 ? cell(@"Skill",AQWAbilityLabel(self.abilityNames,[self.step[@"slot"] integerValue]),YES) :
-        [self switchRow:@"Wait for cooldown" key:@"wait"];
+    if (p.section==0) {
+        if (p.row==0) return cell(@"Skill",AQWAbilityLabel(self.abilityNames,[self.step[@"slot"] integerValue]),YES);
+        if (p.row==1) return toggleCell(@"Wait for cooldown",@"wait",[self.step[@"wait"] boolValue],self,@selector(switchChanged:));
+        return cell(@"Delay before cast",milliseconds([self.step[@"delayMs"] integerValue]),YES);
+    }
     if (p.section==1) {
-        if (!p.row) return [self switchRow:@"Use rules" key:@"rulesEnabled"];
+        if (!p.row) return toggleCell(@"Use rules",@"rulesEnabled",[self.step[@"rulesEnabled"] boolValue],self,@selector(switchChanged:));
         if (p.row==1) return cell(@"Match",[self.step[@"match"] isEqual:@"any"] ? @"Any condition" : @"All conditions",YES);
         return p.row-2<self.rules.count ? cell(AQWRuleTitle(self.rules[p.row-2]),nil,YES) : cell(@"Add condition",@"Health, Mana, Party HP or a named aura",YES);
     }
@@ -428,7 +435,11 @@ static NSArray *abilityLabels(NSArray *names) {
     if (p.section==0 && p.row==0)
         pick(self,@"Skill slot",@[@"2",@"3",@"4",@"5"],abilityLabels(self.abilityNames),[self.step[@"slot"] stringValue],
              ^(NSString *v){ self.step[@"slot"]=@(v.integerValue); [table reloadData]; });
-    else if (p.section==0 || (p.section==1 && p.row==0)) {
+    else if (p.section==0 && p.row==2) {
+        input(self,@"Delay before cast (ms)",[self.step[@"delayMs"] stringValue] ?: @"0",YES,0,INT32_MAX,^(NSString *s){
+            self.step[@"delayMs"] = @(s.integerValue); [table reloadData];
+        });
+    } else if (p.section==0 || (p.section==1 && p.row==0)) {
         UISwitch *control=(UISwitch *)[table cellForRowAtIndexPath:p].accessoryView;
         [control setOn:!control.on animated:YES];
         [control sendActionsForControlEvents:UIControlEventValueChanged];
@@ -452,6 +463,8 @@ static NSArray *abilityLabels(NSArray *names) {
 
 @interface AQWSkillEditor ()
 @property(nonatomic,copy) NSString *name, *setID, *className;
+@property(nonatomic) BOOL resetOnTarget;
+@property(nonatomic) NSInteger timeoutMs;
 @property(nonatomic,strong) NSMutableArray *steps;
 @property(nonatomic,copy) void (^saved)(NSDictionary *);
 @end
@@ -460,6 +473,7 @@ static NSArray *abilityLabels(NSArray *names) {
     if ((self=[super initWithStyle:grouped()])) {
         self.title = profile ? @"Edit skill set" : @"New skill set"; _className=className;
         _name=profile[@"name"] ?: @"New set"; _setID=profile[@"id"] ?: NSUUID.UUID.UUIDString;
+        _resetOnTarget=[profile[@"resetOnTarget"] boolValue]; _timeoutMs=[profile[@"timeoutMs"] integerValue];
         _steps=[(profile[@"steps"] ?: @[AQWStep(@2),AQWStep(@3),AQWStep(@4),AQWStep(@5)]) mutableCopy]; _saved=saved;
     }
     return self;
@@ -473,7 +487,8 @@ static NSArray *abilityLabels(NSArray *names) {
 - (void)cancel:(id)sender { [self dismissViewControllerAnimated:YES completion:nil]; }
 - (void)save:(id)sender {
     if (!self.steps.count) return;
-    self.saved(@{@"id":self.setID,@"name":self.name,@"steps":[self.steps copy]});
+    self.saved(@{@"id":self.setID,@"name":self.name,@"steps":[self.steps copy],
+                 @"resetOnTarget":@(self.resetOnTarget),@"timeoutMs":@(self.timeoutMs)});
     [self dismissViewControllerAnimated:YES completion:nil];
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 2; }
@@ -481,13 +496,18 @@ static NSArray *abilityLabels(NSArray *names) {
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)s {
     return s == 1 && self.steps.count ? @"Swipe left on a skill to delete it." : nil;
 }
-- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)s { return s ? self.steps.count+(self.steps.count<32) : 1; }
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)s { return s ? self.steps.count+(self.steps.count<32) : 3; }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)p {
-    if (!p.section) return cell(@"Set name",self.name,YES);
+    if (!p.section) {
+        if (p.row==0) return cell(@"Set name",self.name,YES);
+        if (p.row==1) return toggleCell(@"Reset on target change",@"resetOnTarget",self.resetOnTarget,self,@selector(targetResetChanged:));
+        return cell(@"Cooldown wait limit",self.timeoutMs ? milliseconds(self.timeoutMs) : @"No limit",YES);
+    }
     if (p.row==self.steps.count) return cell(@"＋ Add skill",nil,YES);
     NSDictionary *step=self.steps[p.row];
     return cell(AQWAbilityLabel(self.abilityNames,[step[@"slot"] integerValue]),AQWStepSummary(step),YES);
 }
+- (void)targetResetChanged:(UISwitch *)control { self.resetOnTarget = control.on; }
 - (void)removeStepAtIndex:(NSUInteger)index {
     [self.steps removeObjectAtIndex:index];
     self.navigationItem.rightBarButtonItem.enabled = self.steps.count > 0;
@@ -515,7 +535,11 @@ static NSArray *abilityLabels(NSArray *names) {
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)p {
     [table deselectRowAtIndexPath:p animated:YES];
     if (!p.section) {
-        input(self,@"Set name",self.name,NO,1,60,^(NSString *s){self.name=s; [table reloadData];}); return;
+        if (p.row==0) input(self,@"Set name",self.name,NO,1,60,^(NSString *s){self.name=s; [table reloadData];});
+        else if (p.row==1) { self.resetOnTarget=!self.resetOnTarget; [table reloadData]; }
+        else input(self,@"Cooldown wait limit (ms, 0 for no limit)",[@(self.timeoutMs) stringValue],YES,0,INT32_MAX,
+            ^(NSString *s){self.timeoutMs=s.integerValue; [table reloadData];});
+        return;
     }
     NSInteger i=p.row;
     if (i==self.steps.count) {

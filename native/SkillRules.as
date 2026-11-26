@@ -7,7 +7,7 @@ package {
             for each (var step:Object in steps) {
                 if (!step || !(step.slot is Number) || step.slot != int(step.slot) ||
                     step.slot < 2 || step.slot > 5 || !(step.rules is Array) || step.rules.length > 8 ||
-                    !(step.wait is Boolean) || ("rulesEnabled" in step && !(step.rulesEnabled is Boolean)) ||
+                    !(step.wait is Boolean) || ("delayMs" in step && !integerBetween(step.delayMs,0,int.MAX_VALUE)) || ("rulesEnabled" in step && !(step.rulesEnabled is Boolean)) ||
                     (step.match !== "all" && step.match !== "any")) return false;
                 for each (var rule:Object in step.rules) {
                     if (!rule) return false;
@@ -69,7 +69,7 @@ package {
             var entry:Object = key != null ? SkillBag.field(tree,String(key)) : null;
             var primary:Object = self && entry ? entry : leaf;
             var fallback:Object = primary === leaf ? entry : leaf;
-            var stacks:int = auraStacks(primary,fallback,clean(rule.name));
+            var stacks:Number = auraStacks(primary,fallback,clean(rule.name),rule.op === "present" || rule.op === "missing");
             if (stacks < 0) return false;
             if (rule.op === "missing") return stacks == 0;
             if (rule.op === "present") return stacks > 0;
@@ -95,27 +95,29 @@ package {
             }
             return false;
         }
-        private static function auraStacks(primary:Object, fallback:Object, name:String):int {
+        private static function auraStacks(primary:Object, fallback:Object, name:String, presence:Boolean):Number {
             var hud:Object = SkillBag.field(primary,"hudAuras");
-            if (!hud) hud = SkillBag.field(fallback,"hudAuras");
-            var aura:Object, count:int = 0;
-            if (hud) {
-                for (var key:String in hud) {
-                    if (clean(key) !== name) continue;
-                    aura = hud[key];
-                    if (aura && (aura.persist == true || !(Number(aura.end)>0) || Number(aura.end)>getTimer()))
-                        count = Math.max(count,1,int(aura.n));
-                }
-                return count;
-            }
             var raw:Array = SkillBag.field(primary,"auras") as Array;
-            if (!raw) raw = SkillBag.field(fallback,"auras") as Array;
-            if (!raw) return -1; // No observed aura collection yet.
-            for each (aura in raw) {
-                if (aura && aura.nam && aura.e != 1 && clean(String(aura.nam)) == name)
-                    count = Math.max(count,1,int(aura.val));
+            // Both counts must belong to the same game snapshot.
+            if (!hud && !raw) {
+                hud = SkillBag.field(fallback,"hudAuras");
+                raw = SkillBag.field(fallback,"auras") as Array;
             }
-            return count;
+            if (!hud && !raw) return -1;
+            var count:Number = 0, values:Number = 0, aura:Object;
+            for (var key:String in hud) {
+                if (clean(key) != name) continue;
+                aura = hud[key];
+                if (aura && (aura.persist == true || !(Number(aura.end)>0) || Number(aura.end)>getTimer()))
+                    count = Math.max(count,presence ? 1 : int(aura.n));
+            }
+            for each (aura in raw) {
+                if (!aura || !aura.nam || aura.e == 1 || clean(String(aura.nam)) != name) continue;
+                if (presence) return 1;
+                var value:* = SkillBag.field(aura,"val");
+                values += value == null || !isFinite(Number(value)) ? 1 : Number(value);
+            }
+            return Math.max(count,values);
         }
     }
 }
