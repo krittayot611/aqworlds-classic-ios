@@ -1,23 +1,18 @@
 package {
-    import flash.display.DisplayObject;
-    import flash.display.InteractiveObject;
-    import flash.events.MouseEvent;
-
-
-    /** Navigation uses the same Join, Go To and portal controls as the game. */
     public final class MapDestinations {
-        private var session:uint;
-        private var destination:Object;
-        private var attempted:Boolean;
+        private var destination:Object, origin:Object;
         private var monsterID:String;
-        private var fromArea:String;
-        private var ownerWorld:Object, connection:Object, user:String;
+        private var requestWorld:Object, requestConnection:Object, requestUser:String;
         private var deadline:int;
+
+        // Only cells actually seen in this account's current map instance are cached.
+        private var seenWorld:Object, seenConnection:Object, seenUser:String, seenArea:String;
+        private var seenPads:Object = {};
 
         public function get active():Boolean { return destination != null; }
         public function cancel():void {
-            destination = null; monsterID = null; attempted = false;
-            ownerWorld = connection = null; user = null;
+            destination = origin = null; monsterID = null;
+            requestWorld = requestConnection = null; requestUser = null;
         }
 
         public static function location(game:Object):Object {
@@ -31,115 +26,106 @@ package {
         }
         public function bookmark(game:Object):Object {
             var here:Object = location(game);
-            if (!here || !here.pad) return null;
-            return here;
+            return here && here.pad ? here : null;
         }
         public static function mobs(w:Object):Array {
             var rows:Array = [], byID:Object = {};
             var definitions:Object = SkillBag.field(w,"mondefMap");
             for each (var spawn:Object in SkillBag.field(w,"monmap")) {
                 var desc:Object = SkillBag.field(definitions,String(SkillBag.field(spawn,"MonID")));
-                addMonster(byID, spawn, SkillBag.field(spawn,"strFrame"),
+                addMonster(byID,spawn,SkillBag.field(spawn,"strFrame"),SkillBag.field(spawn,"strPad"),
                     SkillBag.field(desc,"strMonName") || SkillBag.field(spawn,"strMonName"));
             }
             for each (var unit:Object in SkillBag.field(w,"monsters")) {
                 var data:Object = SkillBag.field(unit,"objData"), leaf:Object = SkillBag.field(unit,"dataLeaf");
                 addMonster(byID,data,SkillBag.field(leaf,"strFrame") || SkillBag.field(data,"strFrame"),
-                    SkillBag.field(data,"strMonName"));
+                    SkillBag.field(leaf,"strPad") || SkillBag.field(data,"strPad"),SkillBag.field(data,"strMonName"));
             }
             for each (var row:Object in byID) rows.push(row);
             rows.sortOn(["cell","name","id"],[Array.CASEINSENSITIVE,Array.CASEINSENSITIVE,Array.NUMERIC]);
             return rows;
         }
-        private static function addMonster(byID:Object, data:Object, cell:*, name:*):void {
+        private static function addMonster(byID:Object, data:Object, cell:*, pad:*, name:*):void {
             var id:* = SkillBag.field(data,"MonMapID");
-            if (id != null && name && cell) byID["#"+id] = {id:String(id),name:String(name),cell:String(cell)};
+            if (id == null || !cell) return;
+            var previous:Object = byID["#"+id];
+            if (!name && previous) name = previous.name;
+            if (!name) return;
+            if (!pad && previous && previous.cell == cell) pad = previous.pad;
+            byID["#"+id] = {id:String(id),name:String(name),cell:String(cell),pad:pad ? String(pad) : ""};
+        }
+        private function remember(game:Object, here:Object):void {
+            var w:Object = SkillBag.field(game,"world"), sfc:Object = SkillBag.field(game,"sfc");
+            var user:String = SkillBag.nameOf(game);
+            if (w !== seenWorld || sfc !== seenConnection || user != seenUser || (here && here.area != seenArea)) {
+                seenPads = {}; seenWorld = w; seenConnection = sfc; seenUser = user;
+                seenArea = here ? here.area : null;
+            }
+            if (here && here.pad) seenPads["#"+here.cell] = here.pad;
         }
         public function begin(game:Object, dest:Object, mob:String, token:uint, now:int):String {
             cancel();
             var here:Object = location(game);
+            remember(game,here);
             if (!here || !dest || !dest.area || !dest.cell) return "Enter a map and try again";
-            if (mob && dest.area != here.area) return "Map changed · scan again";
+            var w:Object = game.world;
             if (mob) {
+                if (dest.area != here.area) return "Map changed · scan again";
                 var current:Object;
-                for each (var spawn:Object in mobs(game.world)) {
+                for each (var spawn:Object in mobs(w)) {
                     if (spawn.id == mob) { current = spawn; break; }
                 }
                 if (!current) return "Monster is no longer on this map · refresh Mobs";
-                dest = {area:here.area,cell:current.cell};
-            }
-            destination = dest; monsterID = mob; session = token;
-            ownerWorld = game.world; connection = game.sfc; user = SkillBag.nameOf(game);
-            fromArea = here.area; deadline = now + 12000;
-            if (here.area != dest.area) {
-                game.world.gotoTown(dest.area,dest.cell,dest.pad);
-                return "Joining " + dest.area;
-            }
-            return advance(game,here,now);
+                dest = {area:here.area,cell:current.cell,pad:current.pad || seenPads["#"+current.cell] || "Left"};
+            } else if (!dest.pad) return "Bookmark has no entry pad";
+            destination = dest; origin = here; monsterID = mob;
+            requestWorld = w; requestConnection = game.sfc; requestUser = SkillBag.nameOf(game);
+            deadline = now + 12000;
+
+            var status:String = arrival(w,here);
+            if (status) return status;
+            if (here.area == dest.area && seenPads["#"+dest.cell] && SkillBag.field(w,"moveToCell") is Function) {
+                w.moveToCell(dest.cell,dest.pad,false);
+            } else if (SkillBag.field(w,"gotoTown") is Function) {
+                // Ask for the exact entry, including on first visit, and honour the returned location.
+                w.gotoTown(dest.area,dest.cell,dest.pad);
+            } else return finish("Map controls unavailable");
+            return "Warping to " + dest.area + " · " + dest.cell;
         }
         public function observe(game:Object, token:uint, now:int):String {
-            if (token != session) {
-                session = token;
-                // A normal instance join can replace the avatar while preserving the connection.
-                if (active && (SkillBag.field(game,"world") !== ownerWorld || SkillBag.field(game,"sfc") !== connection ||
-                    SkillBag.nameOf(game) !== user)) return finish("Travel stopped · account changed");
-            }
             var here:Object = location(game);
+            remember(game,here);
             if (!active) return null;
-            if (now >= deadline) return finish("Travel timed out · " + destination.area + " / " + destination.cell);
+            if (SkillBag.field(game,"world") !== requestWorld || SkillBag.field(game,"sfc") !== requestConnection ||
+                SkillBag.nameOf(game) != requestUser) return finish("Travel stopped · account changed");
+            if (now >= deadline) return finish("Warp not confirmed · " + destination.area + " / " + destination.cell);
             if (!here) return null;
             if (here.area != destination.area) {
-                if (here.area == fromArea && fromArea != destination.area) return null;
-                return finish("Travel stopped · map changed");
+                if (here.area == origin.area) return null;
+                return finish("Arrived in " + here.area + " · " + here.cell + " instead");
             }
-            return advance(game,here,now);
+            var status:String = arrival(game.world,here);
+            if (status) return status;
+            if (here.cell != destination.cell && (here.area != origin.area || here.cell != origin.cell))
+                return finish("Arrived in " + here.area + " · " + here.cell + " instead");
+            return null;
         }
         private function finish(message:String):String { cancel(); return message; }
 
-        private function advance(game:Object, here:Object, now:int):String {
-            var w:Object = game.world;
-            if (here.cell == destination.cell) {
-                if (!monsterID && here.pad == destination.pad)
-                    return finish("At " + here.area + " · " + here.cell + ", " + here.pad);
-                if (monsterID) {
-                    for each (var unit:Object in w.getMonstersByCell(here.cell)) {
-                        if (String(SkillBag.field(unit.objData,"MonMapID")) != monsterID) continue;
-                        if (!unit.pMC || !unit.dataLeaf) break;
-                        if (Number(unit.dataLeaf.intHP) <= 0) return finish("Monster unavailable");
-                        w.setTarget(unit);
-                        return finish("Selected " + unit.objData.strMonName);
-                    }
-                    return "Waiting for the selected monster";
-                }
+        private function arrival(w:Object, here:Object):String {
+            if (here.area != destination.area || here.cell != destination.cell) return null;
+            if (!monsterID) {
+                if (String(here.pad).toLowerCase() != String(destination.pad).toLowerCase()) return null;
+                return finish("At " + here.area + " · " + here.cell + ", " + here.pad);
             }
-            if (attempted) return null;
-            attempted = true;
-            if (tapPortal(game,destination,monsterID != null)) return "Warping to " + destination.cell;
-            if ("getUsersByCell" in w && "goto" in w && !SkillBag.field(SkillBag.field(w,"map"),"nogoto")) {
-                for each (var other:Object in w.getUsersByCell(destination.cell)) {
-                    var leaf:Object = SkillBag.field(other,"dataLeaf");
-                    var who:* = SkillBag.field(leaf,"uoName") || SkillBag.field(leaf,"strUsername") ||
-                        SkillBag.field(SkillBag.field(other,"objData"),"strUsername");
-                    if (!who || other === w.myAvatar || (!monsterID && SkillBag.field(leaf,"strPad") != destination.pad)) continue;
-                    w["goto"](String(who));
-                    return "Warping to " + destination.cell;
-                }
+            for each (var unit:Object in w.getMonstersByCell(here.cell)) {
+                if (String(SkillBag.field(SkillBag.field(unit,"objData"),"MonMapID")) != monsterID) continue;
+                if (!SkillBag.field(unit,"pMC") || !SkillBag.field(unit,"dataLeaf")) break;
+                if (Number(unit.dataLeaf.intHP) <= 0) return finish("Monster unavailable");
+                w.setTarget(unit);
+                return finish("Selected " + unit.objData.strMonName);
             }
-            return finish("Direct warp unavailable · " + destination.cell);
-        }
-        private static function tapPortal(game:Object, dest:Object, anyPad:Boolean):Boolean {
-            for each (var entry:Object in SkillBag.field(game.world,"arrEvent")) {
-                var control:InteractiveObject = entry as InteractiveObject;
-                if (!control || !control.mouseEnabled || !control.hasEventListener(MouseEvent.CLICK) ||
-                    SkillBag.field(entry,"tCell") != dest.cell || (!anyPad && SkillBag.field(entry,"tPad") != dest.pad) ||
-                    SkillBag.field(entry,"enabled") === false) continue;
-                var parent:DisplayObject = control;
-                while (parent && parent != game && parent.visible && parent.alpha > 0) parent = parent.parent;
-                if (parent != game) continue;
-                control.dispatchEvent(new MouseEvent(MouseEvent.CLICK,true,false));
-                return true;
-            }
-            return false;
+            return "Waiting for the selected monster";
         }
     }
 }

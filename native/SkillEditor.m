@@ -125,6 +125,7 @@ static void input(UIViewController *from, NSString *title, NSString *initial, BO
 - (void)rescan:(id)sender { if (self.refreshList) self.refreshList(); }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section { return self.listContext; }
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section {
+    if (self.removeItem && self.rows.count) return @"Tap a bookmark to warp. Swipe left to delete.";
     if (![self.title isEqual:@"Mobs"] || self.visibleRows.count) return nil;
     return self.rows.count ? @"No monsters match your search." : @"No monsters are listed on this map.";
 }
@@ -145,6 +146,22 @@ static void input(UIViewController *from, NSString *title, NSString *initial, BO
     if (self.refreshList) c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     if ([r[@"id"] isEqual:self.selected]) c.accessoryType = UITableViewCellAccessoryCheckmark;
     return c;
+}
+- (BOOL)tableView:(UITableView *)table canEditRowAtIndexPath:(NSIndexPath *)p {
+    return self.removeItem && self.visibleRows[p.row][@"removable"] != nil;
+}
+- (UISwipeActionsConfiguration *)tableView:(UITableView *)table trailingSwipeActionsConfigurationForRowAtIndexPath:(NSIndexPath *)p {
+    if (![self tableView:table canEditRowAtIndexPath:p]) return nil;
+    NSDictionary *item = self.visibleRows[p.row][@"removable"];
+    void (^remove)(NSDictionary *) = self.removeItem;
+    UIContextualAction *action = [UIContextualAction contextualActionWithStyle:UIContextualActionStyleDestructive
+        title:@"Delete" handler:^(UIContextualAction *action, UIView *view, void (^complete)(BOOL)) {
+            complete(YES);
+            remove(item);
+        }];
+    UISwipeActionsConfiguration *swipe = [UISwipeActionsConfiguration configurationWithActions:@[action]];
+    swipe.performsFirstActionWithFullSwipe = NO;
+    return swipe;
 }
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)p {
     NSString *key = self.visibleRows[p.row][@"id"];

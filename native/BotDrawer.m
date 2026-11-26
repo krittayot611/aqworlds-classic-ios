@@ -492,8 +492,8 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     [entries enumerateObjectsUsingBlock:^(NSDictionary *entry, NSUInteger index, BOOL *stop) {
         NSString *detail = mobs ? [NSString stringWithFormat:@"%@ · #%@",entry[@"cell"],entry[@"id"]] :
             [NSString stringWithFormat:@"%@, %@",entry[@"cell"],entry[@"pad"]];
-        [rows addObject:@{@"id":mobs ? entry[@"id"] : @(index).stringValue,
-            @"name":mobs ? entry[@"name"] : entry[@"area"],@"detail":detail}];
+        [rows addObject:mobs ? @{@"id":entry[@"id"],@"name":entry[@"name"],@"detail":detail} :
+            @{@"id":@(index).stringValue,@"name":entry[@"area"],@"detail":detail,@"removable":entry}];
     }];
     NSString *contextText = [NSString stringWithFormat:@"%@ · %@, %@",here[@"area"],here[@"cell"],here[@"pad"]];
     if (mobs) contextText = [contextText stringByAppendingFormat:@"   ·   %lu %@",(unsigned long)rows.count,
@@ -512,28 +512,21 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
             return;
         }
         NSDictionary *entry = entries[choice.integerValue];
-        UIAlertController *options = [UIAlertController alertControllerWithTitle:entry[@"area"]
-            message:[NSString stringWithFormat:@"%@, %@",entry[@"cell"],entry[@"pad"]] preferredStyle:UIAlertControllerStyleAlert];
-        [options addAction:[UIAlertAction actionWithTitle:@"Go" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){
-            self.command(@{@"action":@"travel",@"session":session,@"dest":entry});
-        }]];
-        [options addAction:[UIAlertAction actionWithTitle:@"Delete bookmark" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a){
-            [self removeBookmark:entry];
-        }]];
-        [options addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-        [self presentTool:options];
+        self.command(@{@"action":@"travel",@"session":session,@"dest":entry});
     };
     AQWChoiceList *list = self.mapList;
-    if (list && list.view.window) {
-        [list updateRows:rows context:contextText choose:choose];
-        return;
-    }
-    list = [[AQWChoiceList alloc] initWithTitle:mobs ? @"Mobs" : @"Bookmark" rows:rows selected:nil searchable:mobs choose:choose];
-    [list updateRows:rows context:contextText choose:choose];
+    BOOL visible = list && list.view.window;
+    if (!visible) list = [[AQWChoiceList alloc] initWithTitle:mobs ? @"Mobs" : @"Bookmark"
+        rows:rows selected:nil searchable:mobs choose:choose];
     __weak AQWBotDrawer *drawer = self;
+    if (!mobs) list.removeItem = ^(NSDictionary *entry) {
+        if (![session isEqual:drawer.session]) return;
+        [drawer removeBookmark:entry];
+        [drawer showDestinations:panel];
+    };
     list.refreshList = ^{ [drawer requestMapTool:mobs ? @"mobs" : @"marks"]; };
-    self.mapList = list;
-    [self presentTool:AQWSkillNavigation(list)];
+    [list updateRows:rows context:contextText choose:choose];
+    if (!visible) { self.mapList = list; [self presentTool:AQWSkillNavigation(list)]; }
 }
 - (void)runTapped:(id)sender {
     if (self.pending) return;
@@ -782,6 +775,18 @@ static BOOL checkStepEditing(void) {
         if (![list.title isEqual:@"Bookmark"]) return NO;
         [list tableView:list.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]];
         if (![last[@"action"] isEqual:@"saveMark"]) return NO;
+        [view showDestinations:@{@"mode":@"saveMark",@"session":@3,@"location":secondMark}];
+        [view showDestinations:@{@"mode":@"marks",@"session":@3,@"location":mark}];
+        list = view.captured;
+        NSIndexPath *savedLocation = [NSIndexPath indexPathForRow:1 inSection:0];
+        UISwipeActionsConfiguration *removeMark = [list tableView:list.tableView trailingSwipeActionsConfigurationForRowAtIndexPath:savedLocation];
+        if (!removeMark.actions.count || removeMark.performsFirstActionWithFullSwipe ||
+            [list tableView:list.tableView canEditRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]]) return NO;
+        [list tableView:list.tableView didSelectRowAtIndexPath:savedLocation];
+        if (![last[@"action"] isEqual:@"travel"] || ![last[@"dest"] isEqual:secondMark]) return NO;
+        UIContextualAction *deleteMark = removeMark.actions.firstObject;
+        deleteMark.handler(deleteMark,list.tableView,^(BOOL done){});
+        if ([defaults arrayForKey:@"aqw.map.bookmarks"].count) return NO;
         view.captured=nil;
         [view showTravel:@"Joining fixture-1234" active:YES];
         [view layoutIfNeeded];
