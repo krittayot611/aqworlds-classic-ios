@@ -70,11 +70,8 @@ jobs:
           pattern: runtime-*
           merge-multiple: true
           path: ${{ runner.temp }}/payloads
-      - name: Read the map through C# in the AIR game app
-        run: |
-          ditto -x -k "$RUNNER_TEMP/payloads/iossimulator-arm64.zip" "$RUNNER_TEMP/simulator"
-          python3 build.py --sdk "$RUNNER_TEMP/air"
-          python3 native_smoke.py --sdk "$RUNNER_TEMP/air" --map-runtime "$RUNNER_TEMP/simulator"
+      - name: Compile the AIR app
+        run: python3 build.py --sdk "$RUNNER_TEMP/air"
       - name: Package the device IPA
         run: |
           ditto -x -k "$RUNNER_TEMP/payloads/ios-arm64.zip" "$RUNNER_TEMP/device"
@@ -89,6 +86,10 @@ jobs:
           path: |
             output/*-unstable.ipa
             output/SHA256SUMS.txt
+      - name: Read the map through C# in the AIR game app
+        run: |
+          ditto -x -k "$RUNNER_TEMP/payloads/iossimulator-arm64.zip" "$RUNNER_TEMP/simulator"
+          python3 native_smoke.py --sdk "$RUNNER_TEMP/air" --map-runtime "$RUNNER_TEMP/simulator"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
