@@ -84,7 +84,7 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.backgroundColor = UIColor.clearColor;
     self.handle = button(@"Skills", @"Open skill automation", self, @selector(toggle:));
-    self.mobsButton = button(@"Mobs", @"Mobs, find a monster on this map", self, @selector(mobsTapped:));
+    self.mobsButton = button(@"Mobs", @"Mobs, jump to a monster’s location", self, @selector(mobsTapped:));
     self.bookmarkButton = button(@"Bookmark", @"Bookmark, save or visit a location", self, @selector(marksTapped:));
     self.dock = [UIView new];
     self.dock.backgroundColor = [AQWCharcoal() colorWithAlphaComponent:.95];
@@ -98,9 +98,10 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
             [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold] maximumPointSize:18];
         control.titleLabel.adjustsFontForContentSizeCategory = YES;
         control.titleLabel.adjustsFontSizeToFitWidth = YES;
-        control.titleLabel.minimumScaleFactor = .83;
-        control.contentEdgeInsets = UIEdgeInsetsMake(0,3,0,3);
-        control.backgroundColor = AQWCharcoal();
+        control.titleLabel.minimumScaleFactor = .72;
+        control.titleLabel.numberOfLines = 1;
+        control.contentEdgeInsets = UIEdgeInsetsMake(0,1,0,1);
+        control.backgroundColor = UIColor.clearColor;
         control.layer.cornerRadius = 9;
         control.layer.borderWidth = 0;
         control.layer.borderColor = AQWSecondary().CGColor;
@@ -108,19 +109,19 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     }
     if (@available(iOS 15.0,*)) {
         NSArray *tiles = @[self.handle,self.mobsButton,self.bookmarkButton];
-        NSArray *icons = @[@"slider.horizontal.3",@"scope",@"bookmark"];
+        NSArray *icons = @[@"slider.horizontal.3",@"mappin.and.ellipse",@"bookmark"];
         for (NSUInteger i=0;i<tiles.count;i++) {
             UIButton *tile=tiles[i];
             UIButtonConfiguration *config = [UIButtonConfiguration plainButtonConfiguration];
             config.title = [tile titleForState:UIControlStateNormal];
             config.image = [UIImage systemImageNamed:icons[i]];
             config.imagePlacement = NSDirectionalRectEdgeTop;
-            config.imagePadding = 1;
+            config.imagePadding = 3;
             config.preferredSymbolConfigurationForImage = [UIImageSymbolConfiguration configurationWithPointSize:15 weight:UIImageSymbolWeightMedium];
             config.baseForegroundColor = UIColor.whiteColor;
-            config.contentInsets = NSDirectionalEdgeInsetsMake(2,0,2,0);
+            config.contentInsets = NSDirectionalEdgeInsetsMake(2,1,2,1);
             config.titleTextAttributesTransformer = ^NSDictionary *(NSDictionary *incoming) {
-                NSMutableDictionary *out = [incoming mutableCopy]; out[NSFontAttributeName] = [UIFont systemFontOfSize:10 weight:UIFontWeightMedium]; return out;
+                NSMutableDictionary *out = [incoming mutableCopy]; out[NSFontAttributeName] = [UIFont systemFontOfSize:10 weight:UIFontWeightSemibold]; return out;
             };
             tile.configuration = config;
         }
@@ -212,7 +213,7 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     self.handle.accessibilityLabel = self.expanded ? @"Close skill automation" : @"Open skill automation";
     self.handle.accessibilityValue = self.running ? @"Running" : @"Stopped";
     self.handle.accessibilityTraits = UIAccessibilityTraitButton | (self.expanded ? UIAccessibilityTraitSelected : 0);
-    self.handle.backgroundColor = self.expanded ? AQWPanel() : AQWCharcoal();
+    self.handle.backgroundColor = self.expanded ? AQWPanel() : UIColor.clearColor;
     [self.handle setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
     self.handle.layer.borderColor = (self.running ? AQWSilver() : AQWSecondary()).CGColor;
     self.dot.text = self.running ? @"●" : @"○";
@@ -286,25 +287,35 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     CGFloat dockWidth = horizontal ? 3*tileWidth+8 : tileWidth+4;
     CGFloat dockHeight = horizontal ? 48 : 140;
     BOOL atBottom = horizontal && topSpace < 50;
-    CGFloat y = atBottom ? bottom-dockHeight : top;
-    self.dock.frame = CGRectMake(right-dockWidth,y,dockWidth,dockHeight);
-    CGFloat x = CGRectGetMinX(self.dock.frame)+2;
-    y += 2;
+    // Reserve only the existing minimum margin, then center the whole group in it.
+    CGFloat fit = horizontal ? scale : MIN(scale,2*MAX(1,right-dockWidth-2-width/2)/960.);
+    CGFloat gameRight = (width+960.*fit)/2;
+    CGFloat gameTop = (height-550.*fit)/2, gameBottom = height-gameTop;
+    CGFloat dockX = (gameRight+CGRectGetMaxX(safe)-dockWidth)/2;
+    CGFloat dockY = CGRectGetMidY(safe)-dockHeight/2;
+    if (horizontal) {
+        dockX = CGRectGetMaxX(safe)-12-dockWidth;
+        CGFloat bandMiddle = atBottom ? (gameBottom+CGRectGetMaxY(safe))/2 : (CGRectGetMinY(safe)+gameTop)/2;
+        dockY = bandMiddle-dockHeight/2;
+    }
+    self.dock.frame = CGRectMake(dockX,dockY,dockWidth,dockHeight);
+    CGFloat x = dockX+2, y = dockY+2;
     for (UIButton *control in @[self.handle,self.mobsButton,self.bookmarkButton]) {
         control.frame = CGRectMake(x,y,tileWidth,44);
         if (horizontal) x += tileWidth+2;
         else y += 46;
     }
 
-    CGFloat panelRight = horizontal ? right : CGRectGetMinX(self.dock.frame)-4;
+    CGFloat panelRight = horizontal ? CGRectGetMaxX(self.dock.frame) : dockX-4;
     CGFloat panelTop = horizontal && !atBottom ? CGRectGetMaxY(self.dock.frame)+4 : top;
-    CGFloat panelBottom = atBottom ? CGRectGetMinY(self.dock.frame)-4 : bottom;
+    CGFloat panelBottom = atBottom ? dockY-4 : bottom;
     CGFloat panelWidth = MIN(CGRectGetWidth(safe) >= 900 ? 286 : 248,panelRight-CGRectGetMinX(safe)-2);
-    self.card.frame = CGRectMake(panelRight-panelWidth,panelTop,panelWidth,MIN(376,panelBottom-panelTop));
+    CGFloat panelHeight = MIN(376,panelBottom-panelTop);
+    CGFloat panelY = horizontal ? (atBottom ? panelBottom-panelHeight : panelTop) : CGRectGetMidY(safe)-panelHeight/2;
+    self.card.frame = CGRectMake(panelRight-panelWidth,panelY,panelWidth,panelHeight);
 
     UIView *game = self.gameSurface;
     if (game && !CGRectIsEmpty(game.bounds)) {
-        CGFloat fit = horizontal ? scale : MIN(scale,2*MAX(1,CGRectGetMinX(self.dock.frame)-2-width/2)/960.);
         CGFloat original = MIN(CGRectGetWidth(game.bounds)/960.,CGRectGetHeight(game.bounds)/550.);
         CGFloat factor = MIN(1.,fit/original);
         game.transform = CGAffineTransformScale(self.originalTransform,factor,factor);
@@ -819,6 +830,22 @@ static BOOL checkStepEditing(void) {
         if ([defaults arrayForKey:@"aqw.map.bookmarks"].count) return controlCheckFailed(__LINE__);
         [view layoutIfNeeded];
         CGRect safe = UIEdgeInsetsInsetRect(view.bounds,view.safeAreaInsets);
+        CGRect rail = view.dock.frame, middle = view.mobsButton.frame;
+        if (hypot(CGRectGetMidX(rail)-CGRectGetMidX(middle),CGRectGetMidY(rail)-CGRectGetMidY(middle)) > .25 ||
+            !CGSizeEqualToSize(view.handle.frame.size,middle.size) || !CGSizeEqualToSize(view.bookmarkButton.frame.size,middle.size))
+            return controlCheckFailed(__LINE__);
+        if (CGRectGetHeight(rail)>CGRectGetWidth(rail)) {
+            if (fabs(CGRectGetMidY(rail)-CGRectGetMidY(safe)) > .25 ||
+                fabs((CGRectGetMinX(rail)-CGRectGetMaxX(visible))-(CGRectGetMaxX(safe)-CGRectGetMaxX(rail))) > .25)
+                return controlCheckFailed(__LINE__);
+        } else {
+            BOOL above = CGRectGetMaxY(rail)<=CGRectGetMinY(visible);
+            CGFloat start = above ? CGRectGetMinY(safe) : CGRectGetMaxY(visible);
+            CGFloat end = above ? CGRectGetMinY(visible) : CGRectGetMaxY(safe);
+            if (fabs(CGRectGetMidY(rail)-(start+end)/2) > .25 ||
+                fabs(CGRectGetMaxX(safe)-CGRectGetMaxX(rail)-12) > .25)
+                return controlCheckFailed(__LINE__);
+        }
         for (UIButton *item in @[view.handle,view.mobsButton,view.bookmarkButton]) {
             CGRect f=item.frame;
             if (item.superview != view || item.hidden || CGRectGetWidth(f)<44 || CGRectGetHeight(f)<44 ||

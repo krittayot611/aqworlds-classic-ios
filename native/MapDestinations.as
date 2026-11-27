@@ -5,7 +5,7 @@ package {
     import flash.utils.getQualifiedClassName;
     public final class MapDestinations {
         private var destination:Object, origin:Object;
-        private var monsterID:String;
+        private var mobJump:Boolean;
         private var requestWorld:Object, requestConnection:Object, requestUser:String;
         private var deadline:int;
         private var adjustedPad:Boolean;
@@ -17,7 +17,7 @@ package {
 
         public function get active():Boolean { return destination != null; }
         public function cancel():void {
-            destination = origin = null; monsterID = null; adjustedPad = false; padCandidate = null;
+            destination = origin = null; mobJump = false; adjustedPad = false; padCandidate = null;
             requestWorld = requestConnection = null; requestUser = null;
         }
 
@@ -108,9 +108,13 @@ package {
                     if (spawn.id == mob) { current = spawn; break; }
                 }
                 if (!current) return "This monster is no longer listed. Refresh Mobs.";
-                dest = {area:here.area,cell:current.cell,pad:current.pad || seenPads["#"+current.cell] || ""};
+                dest = {area:here.area,cell:current.cell,pad:current.pad};
+                // Use the same stop control as a player leaving combat. A travel tap
+                // must not carry the previous target or auto-attack into the jump.
+                if ((SkillBag.field(w.myAvatar,"target") || SkillBag.field(SkillBag.field(w,"autoActionTimer"),"running")) &&
+                    SkillBag.field(w,"cancelTarget") is Function) w.cancelTarget();
             } else if (!dest.pad) return "This bookmark has no entry pad.";
-            destination = dest; origin = here; monsterID = mob;
+            destination = dest; origin = here; mobJump = Boolean(mob);
             requestWorld = w; requestConnection = game.sfc; requestUser = SkillBag.nameOf(game);
             deadline = now + (inInstance ? 4000 : 12000);
 
@@ -144,24 +148,18 @@ package {
                     finish("The game sent you to another cell.");
             }
             var w:Object = game.world;
-            if (monsterID) {
-                for each (var unit:Object in w.getMonstersByCell(here.cell)) {
-                    if (String(SkillBag.field(SkillBag.field(unit,"objData"),"MonMapID")) != monsterID ||
-                        !SkillBag.field(unit,"pMC") || !SkillBag.field(unit,"dataLeaf")) continue;
-                    if (Number(unit.dataLeaf.intHP) <= 0) return finish("This monster is down.");
-                    w.setTarget(unit);
-                    return finish();
-                }
-                return null;
-            }
-            if (same(here.pad,destination.pad)) return finish();
+            if (same(here.pad,destination.pad) || (mobJump && !destination.pad)) return finish();
             if (adjustedPad) return null;
             var pad:DisplayObject = savedPadOnFrame(SkillBag.field(w,"map"),here.cell,destination.pad);
+            // A spawn pad is optional. Reaching its cell completes the jump even if
+            // the monster is down or its spawn marker is not a player entrance.
+            if (mobJump && !pad) return finish();
             // Some maps keep playing ambient animation. Require the same real pad on two
             // observations of the destination cell instead of waiting for all animation to stop.
             if (pad && pad === padCandidate && SkillBag.field(w,"moveToCell") is Function) {
                 adjustedPad = true;
                 w.moveToCell(here.cell,pad.name,false);
+                if (mobJump) return finish();
             }
             padCandidate = pad;
             return null;
