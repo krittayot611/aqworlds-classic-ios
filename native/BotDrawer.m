@@ -45,7 +45,7 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
 @property(nonatomic,copy) NSString *classID, *equipped;
 @property(nonatomic,strong) NSNumber *session;
 @property(nonatomic,weak) UIViewController *modal;
-@property(nonatomic,weak) AQWChoiceList *mapList;
+@property(nonatomic,weak) AQWChoiceList *mapList, *pendingJumpList;
 @property(nonatomic,copy) NSString *requestedMapTool, *travelTool, *feedbackTool, *mapFeedback;
 @property(nonatomic,strong) UIButton *handle, *mobsButton, *bookmarkButton, *run, *chooseClass, *chooseSet, *addSet, *editSet, *deleteSet;
 @property(nonatomic,strong) UILabel *stateLine, *dot;
@@ -359,7 +359,7 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
         self.modal = nil; self.mapList = nil; self.pickingClass = NO;
         if (changed) self.requestedMapTool = nil;
     }
-    if (changed) { self.mapFeedback=nil; self.feedbackTool=nil; self.travelTool=nil; self.travelPending=NO; }
+    if (changed) { self.mapFeedback=nil; self.feedbackTool=nil; self.travelTool=nil; self.pendingJumpList=nil; self.travelPending=NO; }
     if (changed || lost) {
         self.classID = [self className:self.equipped] ? self.equipped : self.classes.firstObject[@"id"];
         self.pending = NO;
@@ -470,6 +470,10 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
 - (void)mobsTapped:(id)sender { [self requestMapTool:@"mobs"]; }
 - (void)marksTapped:(id)sender { [self requestMapTool:@"marks"]; }
 - (void)showTravel:(NSString *)problem active:(BOOL)active {
+    AQWChoiceList *chosen = self.pendingJumpList;
+    self.pendingJumpList = nil;
+    if (!problem.length && chosen.navigationController.presentingViewController)
+        [chosen.navigationController dismissViewControllerAnimated:YES completion:nil];
     self.travelPending = active;
     if (active) { self.feedbackTool=nil; self.mapFeedback=nil; }
     if (problem.length) {
@@ -479,6 +483,7 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     [self updateListFeedback:self.mapList];
 }
 - (void)showNotice:(NSString *)text {
+    self.pendingJumpList=nil;
     self.feedbackTool = self.requestedMapTool; self.mapFeedback = text;
     [self updateListFeedback:self.mapList];
     if (text.length && self.window) UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification,text);
@@ -509,7 +514,10 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     }
     if ([panel[@"mode"] isEqual:@"saveMark"]) {
         if (!marked) [prefs setObject:[entries arrayByAddingObject:here] forKey:key];
-        [self showNotice:marked ? @"Location already marked" : @"Location marked on this device"]; return;
+        [self showNotice:marked ? @"Location already marked" : @"Location marked on this device"];
+        if (self.mapList.view.window && [self.requestedMapTool isEqual:@"marks"])
+            [self showDestinations:@{@"mode":@"marks",@"session":session,@"location":here}];
+        return;
     }
     if (![self.requestedMapTool isEqual:panel[@"mode"]]) return;
     NSMutableArray *rows = [NSMutableArray array];
@@ -527,10 +535,12 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
         rows.count == 1 ? @"spawn" : @"spawns"];
     void (^choose)(NSString *) = ^(NSString *choice) {
         if (![session isEqual:self.session]) return;
+        if (self.pendingJumpList) return;
         self.travelTool = mobs ? @"mobs" : @"marks"; self.mapFeedback=nil; self.feedbackTool=nil;
         if ([choice isEqual:@"save"]) {
             self.command(@{@"action":@"saveMark",@"session":session}); return;
         }
+        self.pendingJumpList = self.mapList;
         if (mobs) {
             for (NSDictionary *spawn in entries) if ([spawn[@"id"] isEqual:choice]) {
                 self.command(@{@"action":@"travel",@"session":session,
@@ -827,6 +837,9 @@ static BOOL checkStepEditing(void) {
         [list tableView:list.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]];
         if (![last[@"action"] isEqual:@"travel"] || ![last[@"mob"] isEqual:@"42"] ||
             ![last[@"dest"] isEqual:@{@"area":mark[@"area"],@"cell":@"r7"}] || ![last[@"session"] isEqual:@3]) return controlCheckFailed(__LINE__);
+        [view showTravel:@"No direct jump from here." active:NO];
+        if (view.pendingJumpList || ![list.feedback isEqual:@"No direct jump from here."]) return controlCheckFailed(__LINE__);
+        view.mapFeedback=nil;
         [view showDestinations:@{@"mode":@"mobs",@"session":@3,@"location":mark,@"rows":@[]}];
         list=view.captured;
         if (![[list tableView:list.tableView titleForFooterInSection:0] containsString:@"No monsters"]) return controlCheckFailed(__LINE__);

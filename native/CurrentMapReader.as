@@ -94,9 +94,9 @@ package {
             }
         }
 
-        private function travelState(problem:String = null):void {
+        private function travelState(problem:String = null, acknowledge:Boolean = false):void {
             var active:Boolean = navigator.active;
-            if (active == travelPoll.running && !problem) return;
+            if (active == travelPoll.running && !problem && !acknowledge) return;
             if (active) travelPoll.start(); else travelPoll.stop();
             if (context) context.call("updateTools","travel",problem || "",active);
         }
@@ -118,7 +118,7 @@ package {
             }
             if (request.action == "travel") {
                 if (rotation.running) rotation.stop();
-                travelState(navigator.begin(source,request.dest,request.mob,getTimer()));
+                travelState(navigator.begin(source,request.dest,request.mob,getTimer()),true);
                 return;
             }
             var panel:Object = {mode:request.action, session:token, location:loc};

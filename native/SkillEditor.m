@@ -199,12 +199,12 @@ static NSString *milliseconds(NSInteger value) {
 }
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)p {
     NSString *key = self.visibleRows[p.row][@"id"];
-    if (self.navigationController.viewControllers.firstObject == self) {
+    if (self.refreshList) {
+        [table deselectRowAtIndexPath:p animated:NO];
+        self.choose(key);
+    } else if (self.navigationController.viewControllers.firstObject == self) {
         void (^callback)(NSString *) = self.choose;
-        if (self.refreshList) {
-            [self dismissViewControllerAnimated:YES completion:nil];
-            callback(key);
-        } else [self dismissViewControllerAnimated:YES completion:^{ callback(key); }];
+        [self dismissViewControllerAnimated:YES completion:^{ callback(key); }];
     } else {
         self.choose(key); [self.navigationController popViewControllerAnimated:YES];
     }
