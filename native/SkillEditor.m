@@ -120,11 +120,7 @@ static NSString *milliseconds(NSInteger value) {
     [super viewDidLoad];
     if (self.navigationController.viewControllers.firstObject == self)
         self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(close:)];
-    if (self.refreshList) {
-        self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
-            target:self action:@selector(rescan:)];
-        self.navigationItem.rightBarButtonItem.accessibilityLabel = @"Refresh map list";
-    }
+    [self updateMapButtons];
     if (self.searchable) {
         UISearchBar *search = [UISearchBar new]; search.placeholder = [self.title isEqual:@"Mobs"] ? @"Search by monster or cell" : @"Search bag classes";
         search.delegate = self; [search sizeToFit]; self.tableView.tableHeaderView = search;
@@ -138,9 +134,31 @@ static NSString *milliseconds(NSInteger value) {
         [self searchBar:bar textDidChange:bar.text];
     } else self.visibleRows = rows;
 }
+- (void)setFeedback:(NSString *)text {
+    if ([_feedback isEqual:text] || (!_feedback && !text)) return;
+    _feedback = [text copy];
+    if (self.isViewLoaded) [self.tableView reloadData];
+}
+- (void)setCancelJump:(void (^)(void))action {
+    _cancelJump = [action copy];
+    if (self.isViewLoaded) [self updateMapButtons];
+}
+- (void)updateMapButtons {
+    if (!self.refreshList) return;
+    UIBarButtonItem *refresh = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
+        target:self action:@selector(rescan:)];
+    refresh.accessibilityLabel = @"Refresh map list";
+    if (!self.cancelJump) { self.navigationItem.rightBarButtonItems = @[refresh]; return; }
+    UIBarButtonItem *stop = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemStop
+        target:self action:@selector(stopJump:)];
+    stop.accessibilityLabel = @"Cancel pending jump";
+    self.navigationItem.rightBarButtonItems = @[refresh,stop];
+}
+- (void)stopJump:(id)sender { if (self.cancelJump) self.cancelJump(); }
 - (void)rescan:(id)sender { if (self.refreshList) self.refreshList(); }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section { return self.listContext; }
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section {
+    if (self.feedback.length) return self.feedback;
     if (self.removeItem && self.rows.count) return @"Tap a bookmark to warp. Swipe left to delete.";
     if (![self.title isEqual:@"Mobs"] || self.visibleRows.count) return nil;
     return self.rows.count ? @"No monsters match your search." : @"No monsters are listed on this map.";
@@ -183,7 +201,10 @@ static NSString *milliseconds(NSInteger value) {
     NSString *key = self.visibleRows[p.row][@"id"];
     if (self.navigationController.viewControllers.firstObject == self) {
         void (^callback)(NSString *) = self.choose;
-        [self dismissViewControllerAnimated:YES completion:^{ callback(key); }];
+        if (self.refreshList) {
+            [self dismissViewControllerAnimated:YES completion:nil];
+            callback(key);
+        } else [self dismissViewControllerAnimated:YES completion:^{ callback(key); }];
     } else {
         self.choose(key); [self.navigationController popViewControllerAnimated:YES];
     }

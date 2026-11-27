@@ -1,12 +1,15 @@
 package {
     import flash.display.DisplayObject;
+    import flash.display.InteractiveObject;
+    import flash.events.MouseEvent;
     import flash.utils.getQualifiedClassName;
     public final class MapDestinations {
         private var destination:Object, origin:Object;
         private var monsterID:String;
         private var requestWorld:Object, requestConnection:Object, requestUser:String;
         private var deadline:int;
-        private var checkEntryPad:Boolean;
+        private var adjustedPad:Boolean;
+        private var padCandidate:DisplayObject;
 
         // Only cells actually seen in this account's current map instance are cached.
         private var seenWorld:Object, seenConnection:Object, seenUser:String, seenArea:String;
@@ -14,7 +17,7 @@ package {
 
         public function get active():Boolean { return destination != null; }
         public function cancel():void {
-            destination = origin = null; monsterID = null; checkEntryPad = false;
+            destination = origin = null; monsterID = null; adjustedPad = false; padCandidate = null;
             requestWorld = requestConnection = null; requestUser = null;
         }
 
@@ -60,95 +63,119 @@ package {
         private function remember(game:Object, here:Object):void {
             var w:Object = SkillBag.field(game,"world"), sfc:Object = SkillBag.field(game,"sfc");
             var user:String = SkillBag.nameOf(game);
-            if (w !== seenWorld || sfc !== seenConnection || user != seenUser || (here && here.area != seenArea)) {
+            if (w !== seenWorld || sfc !== seenConnection || user != seenUser || (here && !same(here.area,seenArea))) {
                 seenPads = {}; seenWorld = w; seenConnection = sfc; seenUser = user;
                 seenArea = here ? here.area : null;
             }
             if (here && here.pad) seenPads["#"+here.cell] = here.pad;
         }
-        public function begin(game:Object, dest:Object, mob:String, token:uint, now:int):String {
+        private static function same(a:*, b:*):Boolean {
+            return a != null && b != null && String(a).toLowerCase() == String(b).toLowerCase();
+        }
+
+        // Use the map's own enabled travel control for a first visit. Its normal click handler
+        // retains character, quest and door checks that are specific to the current map.
+        private static function useMapExit(game:Object, cell:String, pad:String):Boolean {
+            for each (var exit:Object in SkillBag.field(game.world,"arrEvent")) {
+                var control:InteractiveObject = exit as InteractiveObject;
+                if (!control || !control.mouseEnabled || SkillBag.field(exit,"enabled") === false ||
+                    !control.hasEventListener(MouseEvent.CLICK) || !same(SkillBag.field(exit,"tCell"),cell)) continue;
+                var area:* = SkillBag.field(exit,"tMap");
+                if (area && !same(area,game.world.strMapName) && !same(area,game.world.strAreaName)) continue;
+                var entry:* = SkillBag.field(exit,"tPad");
+                if (pad && entry && !same(entry,pad)) continue;
+                var parent:DisplayObject = control;
+                while (parent && parent != game && parent.visible && parent.alpha > 0) parent = parent.parent;
+                if (parent !== game) continue;
+                control.dispatchEvent(new MouseEvent(MouseEvent.CLICK,true,false));
+                return true;
+            }
+            return false;
+        }
+
+        // Return a message only when the choice needs the player's attention.
+        public function begin(game:Object, dest:Object, mob:String, now:int):String {
             cancel();
             var here:Object = location(game);
             remember(game,here);
-            if (!here || !dest || !dest.area || !dest.cell) return "Enter a map and try again";
+            if (!here || !dest || !dest.area || !dest.cell) return "Enter a map and try again.";
             var w:Object = game.world;
+            var inInstance:Boolean = same(here.area,dest.area);
             if (mob) {
-                if (dest.area != here.area) return "Map changed · scan again";
+                if (!inInstance) return "Map changed. Refresh Mobs.";
                 var current:Object;
                 for each (var spawn:Object in mobs(w)) {
                     if (spawn.id == mob) { current = spawn; break; }
                 }
-                if (!current) return "Monster is no longer on this map · refresh Mobs";
-                dest = {area:here.area,cell:current.cell,pad:current.pad || seenPads["#"+current.cell] || "Left"};
-            } else if (!dest.pad) return "Bookmark has no entry pad";
+                if (!current) return "This monster is no longer listed. Refresh Mobs.";
+                dest = {area:here.area,cell:current.cell,pad:current.pad || seenPads["#"+current.cell] || ""};
+            } else if (!dest.pad) return "This bookmark has no entry pad.";
             destination = dest; origin = here; monsterID = mob;
             requestWorld = w; requestConnection = game.sfc; requestUser = SkillBag.nameOf(game);
-            deadline = now + 12000;
+            deadline = now + (inInstance ? 4000 : 12000);
 
-            var status:String = arrival(w,here);
-            if (status) return status;
-            if (here.area == dest.area && seenPads["#"+dest.cell] && SkillBag.field(w,"moveToCell") is Function) {
-                w.moveToCell(dest.cell,dest.pad,false);
-            } else if (SkillBag.field(w,"gotoTown") is Function) {
-                // Ask for the exact entry, including on first visit, and honour the returned location.
-                checkEntryPad = !mob;
+            if (!inInstance) {
+                if (!(SkillBag.field(w,"gotoTown") is Function)) return finish("Map travel is unavailable.");
                 w.gotoTown(dest.area,dest.cell,dest.pad);
-            } else return finish("Map controls unavailable");
-            return "Warping to " + dest.area + " · " + dest.cell;
+                return null;
+            }
+            if (same(here.cell,dest.cell)) return observe(game,now);
+            if (useMapExit(game,dest.cell,mob ? "" : dest.pad)) return null;
+            if (!seenPads["#"+dest.cell] || !(SkillBag.field(w,"moveToCell") is Function))
+                return finish("No direct jump is available to this cell from here.");
+            w.moveToCell(dest.cell,dest.pad || seenPads["#"+dest.cell],false);
+            return null;
         }
-        public function observe(game:Object, token:uint, now:int):String {
+
+        public function observe(game:Object, now:int):String {
             var here:Object = location(game);
             remember(game,here);
             if (!active) return null;
-            if (SkillBag.field(game,"world") !== requestWorld || SkillBag.field(game,"sfc") !== requestConnection ||
-                SkillBag.nameOf(game) != requestUser) return finish("Travel stopped · account changed");
-            if (now >= deadline) return finish("Warp not confirmed · " + destination.area + " / " + destination.cell);
+            if (SkillBag.field(game,"sfc") !== requestConnection || SkillBag.nameOf(game) != requestUser ||
+                (same(origin.area,destination.area) && SkillBag.field(game,"world") !== requestWorld))
+                return finish();
+            if (now >= deadline) return finish("The game did not confirm the destination.");
             if (!here) return null;
-            if (here.area != destination.area) {
-                if (here.area == origin.area) return null;
-                return finish("Arrived in " + here.area + " · " + here.cell + " instead");
+            if (!same(here.area,destination.area)) {
+                return same(here.area,origin.area) ? null : finish("The game sent you to another map.");
             }
-            var status:String = arrival(game.world,here);
-            if (status) return status;
-            if (checkEntryPad && here.cell == destination.cell) {
-                var pad:String = savedPadOnFrame(SkillBag.field(game.world,"map"),here.cell,destination.pad);
-                if (pad && SkillBag.field(game.world,"moveToCell") is Function) {
-                    checkEntryPad = false;
-                    game.world.moveToCell(here.cell,pad,false);
-                    return "Moving to entry pad " + pad;
+            if (!same(here.cell,destination.cell)) {
+                return same(here.area,origin.area) && same(here.cell,origin.cell) ? null :
+                    finish("The game sent you to another cell.");
+            }
+            var w:Object = game.world;
+            if (monsterID) {
+                for each (var unit:Object in w.getMonstersByCell(here.cell)) {
+                    if (String(SkillBag.field(SkillBag.field(unit,"objData"),"MonMapID")) != monsterID ||
+                        !SkillBag.field(unit,"pMC") || !SkillBag.field(unit,"dataLeaf")) continue;
+                    if (Number(unit.dataLeaf.intHP) <= 0) return finish("This monster is down.");
+                    w.setTarget(unit);
+                    return finish();
                 }
+                return null;
             }
-            if (here.cell != destination.cell && (here.area != origin.area || here.cell != origin.cell))
-                return finish("Arrived in " + here.area + " · " + here.cell + " instead");
+            if (same(here.pad,destination.pad)) return finish();
+            if (adjustedPad) return null;
+            var pad:DisplayObject = savedPadOnFrame(SkillBag.field(w,"map"),here.cell,destination.pad);
+            // Some maps keep playing ambient animation. Require the same real pad on two
+            // observations of the destination cell instead of waiting for all animation to stop.
+            if (pad && pad === padCandidate && SkillBag.field(w,"moveToCell") is Function) {
+                adjustedPad = true;
+                w.moveToCell(here.cell,pad.name,false);
+            }
+            padCandidate = pad;
             return null;
         }
-        private static function savedPadOnFrame(map:Object, cell:String, wanted:String):String {
-            if (!map || SkillBag.field(map,"currentLabel") !== cell || SkillBag.field(map,"isPlaying") ||
+        private static function savedPadOnFrame(map:Object, cell:String, wanted:String):DisplayObject {
+            if (!map || !same(SkillBag.field(map,"currentLabel"),cell) ||
                 !(SkillBag.field(map,"getChildAt") is Function)) return null;
             for (var i:int=0; i<int(map.numChildren); i++) {
                 var child:DisplayObject = map.getChildAt(i) as DisplayObject;
-                if (child && child.name && child.name.toLowerCase() == wanted.toLowerCase() &&
-                    SkillBag.field(map,child.name) === child && /(^|::)Pad_\d+$/.test(getQualifiedClassName(child)))
-                    return child.name;
+                if (child && same(child.name,wanted) && /(^|::)Pad_\d+$/.test(getQualifiedClassName(child)))
+                    return child;
             }
             return null;
         }
-        private function finish(message:String):String { cancel(); return message; }
-
-        private function arrival(w:Object, here:Object):String {
-            if (here.area != destination.area || here.cell != destination.cell) return null;
-            if (!monsterID) {
-                if (String(here.pad).toLowerCase() != String(destination.pad).toLowerCase()) return null;
-                return finish("At " + here.area + " · " + here.cell + ", " + here.pad);
-            }
-            for each (var unit:Object in w.getMonstersByCell(here.cell)) {
-                if (String(SkillBag.field(SkillBag.field(unit,"objData"),"MonMapID")) != monsterID) continue;
-                if (!SkillBag.field(unit,"pMC") || !SkillBag.field(unit,"dataLeaf")) break;
-                if (Number(unit.dataLeaf.intHP) <= 0) return finish("Monster unavailable");
-                w.setTarget(unit);
-                return finish("Selected " + unit.objData.strMonName);
-            }
-            return "Waiting for the selected monster";
-        }
+        private function finish(problem:String = null):String { cancel(); return problem; }
     }
 }

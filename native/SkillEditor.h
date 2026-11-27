@@ -5,6 +5,8 @@
 
 @interface AQWChoiceList : AQWSkillTable
 @property(nonatomic,copy) void (^refreshList)(void);
+@property(nonatomic,copy) void (^cancelJump)(void);
+@property(nonatomic,copy) NSString *feedback;
 @property(nonatomic,copy) void (^removeItem)(NSDictionary *item);
 - (void)updateRows:(NSArray *)rows context:(NSString *)context choose:(void (^)(NSString *))choose;
 - (instancetype)initWithTitle:(NSString *)title rows:(NSArray<NSDictionary *> *)rows

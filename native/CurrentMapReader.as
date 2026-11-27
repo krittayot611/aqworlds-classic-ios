@@ -21,6 +21,7 @@ package {
         private var bag:SkillBag = new SkillBag();
         private var poll:Timer = new Timer(1250);
         private var lastBag:String;
+        private var travelPoll:Timer = new Timer(125);
         private var navigator:MapDestinations = new MapDestinations();
         private var foreground:Boolean = true;
 
@@ -60,6 +61,7 @@ package {
                 },bag);
                 poll.addEventListener(TimerEvent.TIMER, refreshBag);
                 poll.start();
+                travelPoll.addEventListener(TimerEvent.TIMER, checkTravel);
                 NativeApplication.nativeApplication.addEventListener(Event.DEACTIVATE, onBackground);
                 NativeApplication.nativeApplication.addEventListener(Event.ACTIVATE, onForeground);
             }
@@ -70,7 +72,7 @@ package {
 
         private function onBackground(event:Event):void {
             foreground = false;
-            stopTravel("Travel stopped · app in background");
+            stopTravel();
             poll.stop();
             if (rotation && rotation.running) rotation.stop("Stopped · app in background");
         }
@@ -84,8 +86,7 @@ package {
             var source:Object;
             try { source = game(); info = bag.snapshot(source); }
             catch (error:Error) { info = bag.snapshot(null); }
-            try { travelState(navigator.observe(source,info.session,getTimer())); }
-            catch (navigationError:Error) { stopTravel("Travel unavailable"); }
+            if (!navigator.active) navigator.observe(source,getTimer());
             var payload:String = JSON.stringify(info);
             if (payload !== lastBag) {
                 context.call("updateTools","bag",payload,false);
@@ -93,22 +94,31 @@ package {
             }
         }
 
-        private function travelState(message:String):void {
-            if (message && context) context.call("updateTools","travel",message,navigator.active);
+        private function travelState(problem:String = null):void {
+            var active:Boolean = navigator.active;
+            if (active == travelPoll.running && !problem) return;
+            if (active) travelPoll.start(); else travelPoll.stop();
+            if (context) context.call("updateTools","travel",problem || "",active);
         }
-        private function stopTravel(message:String):void {
-            if (navigator.active) { navigator.cancel(); travelState(message); }
+        private function checkTravel(event:TimerEvent):void {
+            try { travelState(navigator.observe(game(),getTimer())); }
+            catch (error:Error) { navigator.cancel(); travelState("The game could not complete this jump."); }
         }
+        private function stopTravel():void { navigator.cancel(); travelState(); }
         private function mapCommand(request:Object):void {
             var source:Object = game();
             var loc:Object = MapDestinations.location(source);
             var token:uint = bag.session(source);
             if (!foreground || token != uint(request.session) || !loc) {
-                context.call("updateTools","notice","Enter a map and try again",false); return;
+                if (request.action == "mobs" || request.action == "marks") {
+                    context.call("updateTools","destinations",JSON.stringify({mode:request.action,session:request.session,
+                        rows:[],problem:"Enter a map and refresh this list."}),false);
+                } else context.call("updateTools","notice","Enter a map and try again.",false);
+                return;
             }
             if (request.action == "travel") {
                 if (rotation.running) rotation.stop();
-                travelState(navigator.begin(source,request.dest,request.mob,token,getTimer()));
+                travelState(navigator.begin(source,request.dest,request.mob,getTimer()));
                 return;
             }
             var panel:Object = {mode:request.action, session:token, location:loc};
@@ -126,13 +136,13 @@ package {
                 var request:Object = JSON.parse(message);
                 if (request.action == "start" && !foreground) rotation.stop("Stopped · app in background");
                 else if (request.action == "start") {
-                    stopTravel("Travel stopped");
+                    stopTravel();
                     rotation.start(request.steps as Array,request["auto"] === true,request.classId,uint(request.session),
                                    request.resetOnTarget === true,int(request.timeoutMs));
                 }
                 else if (request.action == "bag") { lastBag = null; refreshBag(); }
                 else if (request.action == "stop") rotation.stop();
-                else if (request.action == "cancelTravel") stopTravel("Travel stopped");
+                else if (request.action == "cancelTravel") stopTravel();
                 else if (["mobs","marks","saveMark","travel"].indexOf(request.action) >= 0) {
                     try { mapCommand(request); }
                     catch (navigationError:Error) {
@@ -185,6 +195,7 @@ package {
             NativeApplication.nativeApplication.removeEventListener(Event.DEACTIVATE,onBackground);
             NativeApplication.nativeApplication.removeEventListener(Event.ACTIVATE,onForeground);
             poll.stop(); poll.removeEventListener(TimerEvent.TIMER,refreshBag);
+            travelPoll.stop(); travelPoll.removeEventListener(TimerEvent.TIMER,checkTravel);
             navigator.cancel();
             if (rotation) { rotation.dispose(); rotation = null; }
             if (context != null) {

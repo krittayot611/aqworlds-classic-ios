@@ -153,7 +153,12 @@ static FREObject showTools(FREContext context, void *unused, uint32_t argc, FREO
                 }];
         }
         [session.drawer attachBesideGame:host];
-        if (verify) [session.drawer setExpanded:YES];
+#if TARGET_OS_SIMULATOR
+        if (verify) {
+            BOOL closed = [NSProcessInfo.processInfo.arguments containsObject:@"--aqw-preview-closed"];
+            [session.drawer setExpanded:!closed];
+        }
+#endif
         shown = YES;
     });
     FREObject result = NULL;
