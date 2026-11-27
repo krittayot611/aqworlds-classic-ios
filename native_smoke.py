@@ -97,10 +97,19 @@ def main():
             is_tablet = device['name'].startswith('iPad')
             folder = output / 'ipad' if is_tablet else output
             folder.mkdir(parents=True, exist_ok=True)
+            disposable = bool(os.environ.get('GITHUB_ACTIONS')) and not os.environ.get('AQW_SIMULATOR_UDID')
+            if disposable:
+                # Runner images can contain a preconfigured device stuck in data migration.
+                runtime_id = next(key for key, group in groups.items() if any(d['udid'] == device['udid'] for d in group))
+                udid = subprocess.check_output(['xcrun', 'simctl', 'create', 'AQW ' + device['name'],
+                                                device['deviceTypeIdentifier'], runtime_id], text=True).strip()
+                device = dict(device, udid=udid, state='Shutdown')
             try:
                 check_device(device, folder, app, bundle_id, expected)
             finally:
-                if args.map_runtime and device['state'] != 'Booted':
+                if disposable:
+                    subprocess.run(['xcrun', 'simctl', 'delete', device['udid']], check=False, timeout=90)
+                elif args.map_runtime and device['state'] != 'Booted':
                     subprocess.run(['xcrun', 'simctl', 'shutdown', device['udid']], check=False, timeout=90)
 
 
@@ -124,17 +133,16 @@ def check_device(device, output, app, bundle_id, expected):
     udid = device['udid']
     print('Starting native-background check on ' + device['name'], flush=True)
     if device['state'] != 'Booted': run('xcrun', 'simctl', 'boot', udid)
-    boot_log = output / 'simulator-boot.log'
-    print('Waiting for simulator data migration and startup (up to 900 seconds).', flush=True)
-    with boot_log.open('w') as log:
+    # Installation is the first service this test needs. Wait for that service
+    # directly rather than blocking on unrelated system-app migration.
+    deadline = time.monotonic() + 540
+    while True:
         try:
-            run('xcrun', 'simctl', 'bootstatus', udid, '-b', timeout=900,
-                stdout=log, stderr=subprocess.STDOUT)
+            run('xcrun', 'simctl', 'install', udid, app, timeout=90)
+            break
         except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
-            print(boot_log.read_text()[-6000:], flush=True)
-            raise
-    print('iOS Simulator is ready for the native-background test.', flush=True)
-    run('xcrun', 'simctl', 'install', udid, app)
+            if time.monotonic() >= deadline: raise
+            time.sleep(5)
     data = Path(subprocess.check_output(['xcrun', 'simctl', 'get_app_container', udid, bundle_id, 'data'], text=True).strip())
     marker = data / 'Documents/aqw-startup.log'; marker.unlink(missing_ok=True)
     run('xcrun', 'simctl', 'launch', udid, bundle_id)
