@@ -29,6 +29,7 @@ def map_observations(log, expected):
             'target_reset_and_skill_timing': True, 'bookmark_pad_correction': True,
             'centered_game_with_tools_open_or_closed': True, 'no_same_instance_rejoin': True, 'quiet_map_travel': True,
             'independent_map_controls': True, 'one_tap_remote_spawn_fixture': True,
+            'balanced_right_controls': True, 'mob_travel_without_combat': True,
             'online_map_transition_tested': False, 'physical_device_tested': False}
 
 

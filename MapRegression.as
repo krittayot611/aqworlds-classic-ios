@@ -144,7 +144,7 @@ package {
                 checkTiming();
                 note("TIMING_CHECK passed: target resets, delay, cooldown timeout and cancellation");
                 checkDestinations();
-                note("JUMP_CHECK passed: no same-instance rejoin, native exits, exact spawn and settled bookmark pad");
+                note("JUMP_CHECK passed: travel-only mob jumps, no combat or rejoin, native exits and settled bookmark pad");
                 note("MAP_TOOLS_CHECK passed: class ability names, room and pad, map-wide spawns, travel and cancellation");
                 note("PROFILE_CHECK passed: bag isolation, shared class keys, equip acknowledgement, aura stacks/expiry, HP/MP, all/any and skip");
                 checkResourceRules();
@@ -213,15 +213,15 @@ package {
             var mobs:Array = MapDestinations.mobs(w);
             expect(mobs.length==2 && mobs[1].id=="5" && mobs[1].pad=="Right","spawn list merges by ID and keeps known pad");
             var nav:MapDestinations = new MapDestinations();
-            var jumps:Array=[], joins:Array=[], targets:Array=[];
-            var twin:Object={objData:{MonMapID:6,strMonName:"Wolf"},dataLeaf:{intHP:10},pMC:{}};
-            var visible:Array=[twin];
+            var jumps:Array=[], joins:Array=[];
+            var mobStops:int=0;
+            w.autoActionTimer={running:true};
+            player.target=wolf;
+            w.cancelTarget=function():void { mobStops++; player.target=null; w.autoActionTimer.running=false; };
             w.moveToCell=function(c:String,p:String,local:Boolean):void { jumps.push([c,p,local].join("/")); };
             w.gotoTown=function(a:String,c:String,p:String):void { joins.push([a,c,p].join("/")); };
-            w.getMonstersByCell=function(c:String):Array {return visible;};
-            w.setTarget=function(unit:Object):void { targets.push(unit); };
-            function unexpected(...args):void { throw new Error("Unexpected movement or player lookup"); }
-            w.walkToPoint=w.approachTarget=w.getUsersByCell=w["goto"]=unexpected;
+            function unexpected(...args):void { throw new Error("Mob navigation entered combat, chased a monster or looked up a player"); }
+            w.getMonstersByCell=w.setTarget=w.testAction=w.autoAttack=w.walkToPoint=w.approachTarget=w.getUsersByCell=w["goto"]=unexpected;
             var door:MovieClip=new MovieClip();
             door.tCell="r1"; door.tPad="Right"; door.enabled=true;
             game.addChild(door);
@@ -232,11 +232,11 @@ package {
             var mark:Object={area:w.strAreaName,cell:"r1",pad:"left"};
             nav.begin(game,{area:"FIXTURE-1234",cell:"stale"},"5",10);
             expect(clicks==1 && !joins.length && !jumps.length && nav.active,"first visit uses the available in-map control without rejoining");
-            nav.observe(game,20); expect(clicks==1 && !targets.length,"one request while waiting");
-            w.strFrame="r1"; w.strPad="Right"; nav.observe(game,25);
-            expect(!targets.length && nav.active,"wait for the exact spawn");
-            visible.push(wolf); nav.observe(game,26);
-            expect(targets[0]===wolf && !nav.active && nav.bookmark(game).pad=="Right","select the tapped spawn");
+            expect(mobStops==1 && player.target==null && !w.autoActionTimer.running,"stop existing combat before the jump");
+            nav.observe(game,20); expect(clicks==1 && nav.active,"one request while waiting");
+            w.strFrame="r1"; w.strPad="Right"; w.monsters=[];
+            expect(!nav.observe(game,25) && !nav.active && nav.bookmark(game).pad=="Right","arrive at the chosen spawn cell without a live monster");
+            w.monsters=[wolf];
 
             var pad:Pad_1=new Pad_1(); pad.name="Left";
             w.map={currentLabel:"Enter",isPlaying:true,numChildren:1,getChildAt:function(i:int):Object{return pad;}};
@@ -250,16 +250,23 @@ package {
             nav.begin(game,mark,"5",40); nav.observe(game,41);
             expect(jumps.length==2 && jumps[1]=="r1/Right/false" && !joins.length,"known cell jumps directly without an exit or a join");
             w.strFrame="r1"; w.strPad="Right"; nav.observe(game,45);
-            expect(targets.length==2 && !nav.active,"arrival selects without walking");
+            expect(!nav.active && !player.target && mobStops==1,"arrival without targeting, walking or restarting combat");
             wolf.dataLeaf.intHP=0;
-            expect(nav.begin(game,mark,"5",46)!=null && !nav.active && targets.length==2,"dead spawn");
-            expect(nav.begin(game,mark,"999",47)!=null && !nav.active,"removed spawn");
+            expect(!nav.begin(game,mark,"5",46) && !nav.active && jumps.length==2 && clicks==1,"dead or same-pad spawn completes without combat");
+            pad.name="Right"; w.strPad="Left";
+            nav.begin(game,mark,"5",47); nav.observe(game,48);
+            expect(jumps.length==3 && jumps[2]=="r1/Right/false" && !nav.active,"same cell uses a real spawn entrance at most once");
+            w.strPad="Right";
+            w.monmap[0].strPad="monsterOnly";
+            expect(!nav.begin(game,mark,"5",49) && !nav.active && jumps.length==3,"unusable spawn pad finishes at the cell without a timeout");
+            w.monmap[0].strPad="Right"; pad.name="Left";
+            expect(nav.begin(game,mark,"999",49)!=null && !nav.active,"removed spawn");
             w.strAreaName="other-2"; w.strFrame="Enter"; w.strPad="Spawn";
             expect(nav.begin(game,mark,"5",50)!=null && !nav.active,"stale mob list cannot join a map");
             w.strAreaName="fixture-5678"; nav.begin(game,mark,null,55); nav.observe(game,56);
             expect(joins.join()=="fixture-1234/r1/left" && nav.active,"different room number joins exactly once");
             w.strAreaName=mark.area;
-            expect(nav.observe(game,60)!=null && !nav.active && jumps.length==2,"honor a redirected entry");
+            expect(nav.observe(game,60)!=null && !nav.active && jumps.length==3,"honor a redirected entry");
             w.arrEvent=[door]; door.enabled=false;
             expect(nav.begin(game,mark,"5",65)!=null && !nav.active && clicks==1 && joins.length==1,"unavailable cell never rejoins");
             door.enabled=true; door.visible=false;
@@ -269,11 +276,11 @@ package {
             door.tMap=""; nav.begin(game,mark,"5",70);
             expect(nav.observe(game,4070)!=null && !nav.active && joins.length==1 && clicks==2,"blocked jump expires without retry");
             nav.begin(game,mark,"5",4080); nav.cancel(); w.strFrame="r1"; w.strPad="Right";
-            expect(!nav.observe(game,4090) && !nav.active && targets.length==2,"ignore a cancelled arrival");
+            expect(!nav.observe(game,4090) && !nav.active && mobStops==1,"ignore a cancelled arrival");
 
             w.strFrame="Enter"; w.strPad="Spawn"; nav.begin(game,mark,"5",5000);
             game.sfc.myUserName="Other"; player.objData.strUsername="Other"; nav.observe(game,5001);
-            expect(!nav.active && targets.length==2,"stop on account switch");
+            expect(!nav.active && mobStops==1,"stop on account switch");
             w.strAreaName="other-3"; nav.begin(game,mark,null,6000);
             w.strAreaName=mark.area; w.strFrame="r1"; w.strPad="Right"; w.map.currentLabel="r1";
             nav.observe(game,6001); var jumpCount:int=jumps.length; nav.observe(game,6002); nav.observe(game,6003);
