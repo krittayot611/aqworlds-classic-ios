@@ -13,23 +13,23 @@ An unofficial iOS and iPadOS client for AQWorlds Classic.
 | Channel | Version | IPA |
 | --- | --- | --- |
 | Stable | 1 | [Download Classic IPA (no bot)](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1/AQWorlds-Classic-1.ipa) |
-| Unstable | 1.1.9 | [Download IPA with Skills, Mobs and Bookmark](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.9-unstable/AQWorlds-Classic-1.1.9-unstable.ipa) |
+| Unstable | 1.1.10 | [Download IPA with Skills, Mobs and Bookmark](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.10-unstable/AQWorlds-Classic-1.1.10-unstable.ipa) |
 
-Classic 1 uses manual touch controls. iOS displays it as **1.0.0**. Unstable 1.1.9 puts three touch controls in a gray toolbar beside the game. The game scales to fit when you open Skills.
+Classic 1 uses manual touch controls. iOS displays it as **1.0.0**. Unstable 1.1.10 keeps the game centered. Open **Skills**, **Mobs** or **Bookmark** from the compact gray controls on the right. Each menu opens over the game at its current size. On iPad, the controls can use the space above the game.
 
 | Open | What you can do |
 | --- | --- |
 | **Skills** | Choose a class from the signed-in character’s bag, select a set, then tap **Start** or **Stop**. Accounts on the same device share sets for classes they own. Tap **Edit** to see the casting order and the class’s four numbered skill names once its skill bar has loaded. Swipe left on a skill to delete it. |
-| **Mobs** | Search individual spawns across the current map by name, cell or spawn ID. Tap a row to warp to its cell and select that spawn. Two monsters with the same name have separate rows. |
-| **Bookmark** | Save the current map and room number, cell and pad. Tap an entry to warp back. If you arrive in the right cell at another pad, the app checks the loaded cell and retries once when the saved pad exists. Swipe left and tap **Delete** to remove a bookmark. |
+| **Mobs** | Search the current map by monster name, cell or spawn ID. Tap a monster in your cell to target it immediately. For another cell in the same room, the app uses an available map exit or jumps to a previously visited cell. If no direct jump is available, the list stays open and explains why. Two monsters with the same name have separate rows. |
+| **Bookmark** | Tap **Mark current location** to save the map, room number, cell and entrance pad on this device. Select a bookmark to return. A bookmark in another map or numbered room makes one join request. Swipe left to delete a bookmark. |
 
 **Skill conditions.** New skills use the next ready skill in order. Turn on **Wait for cooldown** to hold that step. **Use rules** starts off. Combine Health, Mana or Party HP in points or percent with named auras on yourself or your target. Party HP checks living party members in the current cell. Each step can require all conditions or any one of them. Aura rules support presence, absence and stack counts.
 
 **Timing.** Turn on **Reset on target change** to restart the combo when you switch monsters. **Cooldown wait limit** applies to the whole set in milliseconds (0 means unlimited). **Delay before cast** applies to one skill (0 means immediate). Both timings default to 0.
 
-**Targeting and travel.** **Selected** uses the monster you tap. **Auto in room** picks a monster in the current cell and approaches it using its normal attack range. For map-wide travel, tap a destination in Mobs or Bookmark. Starting a warp stops the current skill rotation. The app displays the arrival or a status if the server redirects the character or the destination cannot be confirmed. [Skua’s Auto and Jump controls](https://github.com/auqw/Skua/blob/master/usage.md) · [Grimlite Rev toolbar](https://auqw.github.io/d/guide.html)
+**Targeting and travel.** **Selected** uses the monster you tap. **Auto in room** picks a monster in the current cell and approaches it using its normal attack range. Choosing a destination stops the active skill rotation. Mobs keeps you in the current map instance. Bookmarks check the saved cell and entrance, including on animated maps, and correct the pad at most once. You can cancel a pending jump from either map list. Travel leaves the game screen clear. Open the relevant list for a destination error. [Skua’s Auto and Jump controls](https://github.com/auqw/Skua/blob/master/usage.md) · [Grimlite Rev toolbar](https://auqw.github.io/d/guide.html)
 
-**Interface previews.** These captures come from the iPhone and iPad simulators. The menus show sample class, monster and bookmark data. The ZIP includes both screen sizes, the running controls and the condition editors. [Skill set](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.9-unstable/AQWorlds-Classic-1.1.9-Skills.png) · [Mobs](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.9-unstable/AQWorlds-Classic-1.1.9-Mobs.png) · [Bookmark](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.9-unstable/AQWorlds-Classic-1.1.9-Bookmark.png) · [All screenshots (ZIP)](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.9-unstable/AQWorlds-Classic-1.1.9-UI.zip)
+**Interface previews.** Compare the same iPhone game screen with Skills closed and open. The gallery also includes iPad, both map lists, the skill editors and running controls. Images come from simulators. The list and editor previews use sample data. [Menu closed](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.10-unstable/AQWorlds-Classic-1.1.10-Menu-closed.png) · [Skills open](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.10-unstable/AQWorlds-Classic-1.1.10-Menu-open.png) · [iPhone and iPad gallery (ZIP)](https://github.com/krittayot611/aqworlds-classic-ios/releases/download/v1.1.10-unstable/AQWorlds-Classic-1.1.10-UI.zip)
 
 <details>
 <summary>Version history and earlier downloads</summary>
@@ -46,6 +46,7 @@ Classic 1 uses manual touch controls. iOS displays it as **1.0.0**. Unstable 1.1
 | [1.1.7](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.7-unstable) | — | Separate right-edge features, map-wide monster selection and a simpler skill overview |
 | [1.1.8](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.8-unstable) | — | Dedicated side toolbar, start/stop inside Skills and one-tap cell and pad travel |
 | [1.1.9](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.9-unstable) | — | Reset on target change, cooldown wait limit, per-skill delay, named aura stack counts and bookmark pad correction |
+| [1.1.10](https://github.com/krittayot611/aqworlds-classic-ios/releases/tag/v1.1.10-unstable) | — | Compact right-side tools, a fixed game view, same-room mob jumps and more reliable bookmark arrivals |
 
 </details>
 
@@ -86,8 +87,8 @@ Install the IPA with [Sideloadly](https://sideloadly.io/) on Windows or macOS.
 
 | Platform | Requirements | Status |
 | --- | --- | --- |
-| iPhone | 64-bit device, iOS 12.0 or later (12.2 for Unstable 1.1.9) | iOS build available |
-| iPad | 64-bit device, iOS 12.0 or later (12.2 for Unstable 1.1.9), or iPadOS | iOS build available |
+| iPhone | 64-bit device, iOS 12.0 or later (12.2 for Unstable 1.1.10) | iOS build available |
+| iPad | 64-bit device, iOS 12.0 or later (12.2 for Unstable 1.1.10), or iPadOS | iOS build available |
 | 32-bit iOS devices | — | Not supported |
 | Android | — | No build provided by this project |
 | Windows, macOS and Linux | — | No desktop game build provided |
