@@ -17,7 +17,7 @@ def map_observations(log, expected):
         raise RuntimeError('Map reader failed:\n' + log[-3000:])
     live = [json.loads(line.split('MAP_LIVE ', 1)[1]) for line in log.splitlines() if 'MAP_LIVE ' in line]
     samples = [json.loads(line.split('MAP_SAMPLE ', 1)[1]) for line in log.splitlines() if 'MAP_SAMPLE ' in line]
-    if len(samples) < 3 or any(marker not in log for marker in ('BOT_CHECK passed:', 'PROFILE_CHECK passed:', 'RULE_CHECK passed:', 'STEP_CHECK passed:', 'MAP_TOOLS_CHECK passed:', 'TIMING_CHECK passed:')):
+    if len(samples) < 3 or any(marker not in log for marker in ('BOT_CHECK passed:', 'PROFILE_CHECK passed:', 'RULE_CHECK passed:', 'STEP_CHECK passed:', 'MAP_TOOLS_CHECK passed:', 'TIMING_CHECK passed:', 'JUMP_CHECK passed:')):
         return None
     if len(live) != 1 or (live[0] is not None and not isinstance(live[0], str)) or samples != [*expected, None]:
         raise RuntimeError(f'Incorrect map readings: live={live!r}, samples={samples!r}')
@@ -27,6 +27,7 @@ def map_observations(log, expected):
             'right_edge_phone_and_tablet': True, 'inclusive_resource_and_party_rules': True, 'named_aura_stacks': True,
             'cooldown_switch_and_new_step_defaults': True, 'swipe_delete_skill_rows': True, 'neutral_stop_controls': True,
             'target_reset_and_skill_timing': True, 'bookmark_pad_correction': True,
+            'centered_game_with_tools_open_or_closed': True, 'no_same_instance_rejoin': True, 'quiet_map_travel': True,
             'independent_map_controls': True, 'one_tap_remote_spawn_fixture': True,
             'online_map_transition_tested': False, 'physical_device_tested': False}
 
@@ -102,6 +103,22 @@ def main():
                     subprocess.run(['xcrun', 'simctl', 'shutdown', device['udid']], check=False, timeout=90)
 
 
+def capture_drawer_states(udid, bundle_id, marker, output, expected):
+    run('xcrun', 'simctl', 'io', udid, 'screenshot', output / 'tools-open.png')
+    run('xcrun', 'simctl', 'terminate', udid, bundle_id)
+    marker.unlink(missing_ok=True)
+    run('xcrun', 'simctl', 'launch', udid, bundle_id, '--aqw-preview-closed')
+    deadline = time.monotonic() + 150
+    while time.monotonic() < deadline:
+        log = marker.read_text() if marker.exists() else ''
+        if map_observations(log, expected):
+            run('xcrun', 'simctl', 'io', udid, 'screenshot', output / 'tools-closed.png')
+            return
+        if 'Load failed (' in log:
+            raise RuntimeError('Could not capture the collapsed game view: ' + log[-1800:])
+        time.sleep(1)
+    raise RuntimeError('The collapsed simulator view did not finish loading.')
+
 def check_device(device, output, app, bundle_id, expected):
     udid = device['udid']
     print('Starting native-background check on ' + device['name'], flush=True)
@@ -128,6 +145,7 @@ def check_device(device, output, app, bundle_id, expected):
             if expected:
                 evidence = map_observations(text, expected)
                 if evidence:
+                    capture_drawer_states(udid, bundle_id, marker, output, expected)
                     evidence['device'] = device['name']
                     for name in ('condition-editor', 'skill-options', 'running-controls', 'rail-phone', 'rail-tablet',
                                  'set-editor', 'aura-editor', 'mobs', 'bookmarks'):
