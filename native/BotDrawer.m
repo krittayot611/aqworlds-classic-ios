@@ -85,7 +85,7 @@ static UIStackView *stack(NSArray<UIView *> *views, BOOL horizontal, CGFloat spa
     self.backgroundColor = UIColor.clearColor;
     self.handle = button(@"Skills", @"Open skill automation", self, @selector(toggle:));
     self.mobsButton = button(@"Mobs", @"Mobs, jump to a monster’s location", self, @selector(mobsTapped:));
-    self.bookmarkButton = button(@"Bookmark", @"Bookmark, save or visit a location", self, @selector(marksTapped:));
+    self.bookmarkButton = button(@"Marks", @"Bookmark, save or visit a location", self, @selector(marksTapped:));
     self.dock = [UIView new];
     self.dock.backgroundColor = [AQWCharcoal() colorWithAlphaComponent:.95];
     self.dock.layer.cornerRadius = 11;
