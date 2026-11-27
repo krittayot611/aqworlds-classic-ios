@@ -125,10 +125,10 @@ def check_device(device, output, app, bundle_id, expected):
     print('Starting native-background check on ' + device['name'], flush=True)
     if device['state'] != 'Booted': run('xcrun', 'simctl', 'boot', udid)
     boot_log = output / 'simulator-boot.log'
-    print('Waiting for simulator data migration and startup (up to 420 seconds).', flush=True)
+    print('Waiting for simulator data migration and startup (up to 900 seconds).', flush=True)
     with boot_log.open('w') as log:
         try:
-            run('xcrun', 'simctl', 'bootstatus', udid, '-b', timeout=420,
+            run('xcrun', 'simctl', 'bootstatus', udid, '-b', timeout=900,
                 stdout=log, stderr=subprocess.STDOUT)
         except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
             print(boot_log.read_text()[-6000:], flush=True)
